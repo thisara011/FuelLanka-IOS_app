@@ -25,7 +25,7 @@ User clarification, 19 October 2026: build a real application, not a demo. This 
 7. Find Fuel and filters — search UI implemented with native search, fuel/availability menus, manual province/district/city criteria, draft Apply/Cancel, and reset. Connected to Find tab. Build and standard/large-text/filter-sheet previews checked. Runtime data queries, station results and distance filtering remain pending; no fabricated results are shown. Station Details presentation now supports supplied reports, timestamps, sources, stale labels, stock/capacity validation and coordinate-based directions. Missing data and forecasts stay unavailable. Find has a typed details destination; real result links remain pending. Build, two data-guard tests and light/dark/large-text unavailable-state previews checked. Next: Live Map (implemented below).
 8. Live Map and location access — implemented native MapKit with Sri Lanka initial region/reset, on-demand Core Location permission, denied/error feedback, fuel/availability filters, supplied-record pins and station-details navigation, and List view routing to manual search. No fabricated pins or stock. Build passed; light and dark/large-text previews rendered on iPhone 17 Pro (iOS 26.5). Preview map tiles were blank, so network tile loading and permission interactions still require simulator/device verification. Real station feed and authenticated access remain pending.
 9. Favourites and same-fuel price comparison — front-end implemented from Figma with Home entry, saved-station/detail navigation, Find more stations routing, and separate empty/unavailable states. Comparison selects one fuel grade and presents the latest supplied report with LKR pricing, stock, timestamp, source and stale labels. No fabricated stations or prices. Build passed; light and dark/large-text unavailable-state previews checked on iPhone 17 Pro (iOS 26.5). Account-scoped save/remove persistence, live reports, distances, populated-state verification and customer analytics remain pending.
-10. Customer Profile, preferences, settings and notification screens.
+10. Customer Profile and preferences — front-end implemented from Figma with native Profile tab, edit sheet, contact and Sri Lanka district drafts, four fuel selections, restock/price alert drafts, discard confirmation and explicit unavailable-save feedback. Favourites and comparison links are connected. Build and light/dark/large-text previews checked. Persisted account rendering/writes, validation on real saves, notifications, security, analytics and actual sign-out remain pending; no session or subscription is simulated.
 11. Returning-customer and Face ID opt-in/fallback screens; enable biometrics only after authentication integration.
 12. Manager Dashboard, assigned-station details, stock update/review, prices, sales and deliveries.
 13. Manager Profile, notifications and analytics; preserve station assignment as read-only.
@@ -70,4 +70,54 @@ Before integration, inspect existing configuration and obtain the actual Firebas
 
 - Authentication, account creation, password reset, Face ID, role workspaces and all cloud services remain unimplemented.
 - The generated SwiftData Item container is still template code, not the application's persistence architecture.
-- Authentication screens currently validate locally and show truthful unavailable-service feedback. Demo labels, research access, and fabricated welcome stock/prediction values were removed. Customer Home is now available in Xcode previews; authenticated routing is pending. Next front-end screen: Customer Profile and preferences.
+- Authentication screens currently validate locally and show truthful unavailable-service feedback. Demo labels, research access, and fabricated welcome stock/prediction values were removed. Customer Home is now available in Xcode previews; authenticated routing is pending. Next front-end screen: Administrator Dashboard.
+
+## Notifications increment
+
+Customer Notifications implemented from Figma with Home/Profile navigation, supplied account-alert cards, newest-first timestamps, alert details, optional station navigation and alert-preferences sheet. Loading, unavailable and successful-empty states are separate. Runtime uses unavailable state until the service is connected; no fabricated alerts or notification permission prompts. Build passed; light unavailable and dark/accessibility-size empty previews checked. Firebase/APNs delivery, authorized deep-link resolution, read-state persistence and populated-state device verification remain pending.
+
+## Account security increment
+
+Profile now opens Sign-in & security, adapted from Figma without simulated biometric controls. Includes setup requirements, truthful unavailable status, password-fallback explanation and Reset password navigation with the correct return label. No biometric prompts, credential storage or enablement flags were added. Build passed; light and dark/accessibility-size previews checked. Actual opt-in, capability checks, LocalAuthentication/Keychain integration and failure/cancel paths await authenticated sessions.
+
+## Manager dashboard increment
+
+ManagerWorkspaceView adds native Home, Stock, Activity and More tabs. Dashboard follows Figma with assigned-station name, explicit unknown operating status, four fuel grades, supplied inventory/capacity progress, report dates and stale labels, and stock/price/forecast navigation. Station details reuse the existing read-only screen. Missing data never becomes zero stock or a forecast. Stock, activity, prices, deliveries and manager profile destinations remain explicitly unavailable pending their screen increments. Build passed; light and dark/accessibility-size workspace previews checked. Review through ManagerWorkspaceView previews; no runtime role bypass was added. Authorized manager routing and assigned-station services remain pending.
+
+## Stock update increment
+
+Stock tab now presents four measured-total fields, latest report and capacity context, stale warnings, explicit discard, and a review sheet. Blank grades remain unchanged; valid decimal litres accept up to three decimal places and cannot exceed a finite positive capacity. Missing assignment disables entry. Assignment/report changes clear drafts to avoid applying old values to a new snapshot. Deliveries are a separate future transaction flow to prevent double counting. Confirm/save stays disabled until authorized atomic writes, server timestamps, conflict checks and duplicate protection exist. Build and nine Swift Testing validation cases passed; light and dark/accessibility-size unavailable-state previews checked. Populated review and interactive device checks remain pending.
+
+## Manager fuel prices increment
+
+Dashboard and More now open the five-grade price form, including kerosene separately from four-grade inventory. Uses Decimal prices, positive values with two decimal places, required per-grade effective date/time in Sri Lanka time, unchanged blank prices, discard confirmation and a review sheet. Existing prices show report time and stale labels when supplied; kerosene report integration remains pending. Assignment/report changes reset drafts. Publishing remains disabled until authorized price services, scheduling policy and atomic audit writes exist. Build and ten Swift Testing cases passed; light and dark/large-text unavailable-state previews checked. Populated review/device interaction checks remain pending.
+
+## Sales history and delivery log increment
+
+Activity now opens Sales history; More and Sales history link to Deliveries. Screens follow Figma summaries/cards with unavailable totals/schedules, fuel filtering, loading/empty/unavailable record states, station-ID filtering and supplied-record detail navigation. Missing quantities and timestamps remain unknown. No fabricated totals, incoming deliveries or exports. Build passed; light Sales history and dark/large-text Deliveries previews checked. Receipt entry/review, scanning, actual export, daily aggregation, authorized record feeds and transaction persistence remain pending.
+
+## Delivery receipt increment
+
+Deliveries now opens a manual receipt sheet with fuel selection, supplier reference, received litres, Sri Lanka receipt time, inventory context, validation and review of proposed stock. Cancel protects unsaved content; assignment/report changes reset the draft. Requires positive quantity, reference, nonfuture receipt time and a nonstale pre-receipt report with valid stock/capacity. Review includes physical-check acknowledgement, while saving stays disabled pending authorized atomic transactions, receipt deduplication and conflict checks. Build and eight Swift Testing cases passed; light and dark/large-text unavailable-state previews checked. Scanning and populated interactive review verification remain pending.
+
+## Manager profile increment
+
+More now opens Manager Profile with supplied identity fields, read-only station assignment/address, station details and security links. Missing identity stays unavailable. Edit and logout display explicit unavailable-service notices; operational notifications remain an unavailable destination. Build and light/dark/large-text previews checked. Manager edit form, authenticated identity/session wiring and actual sign-out remain pending.
+
+## Manager edit profile increment
+
+Edit Profile now opens a draft sheet with prefilled supplied name/phone, shared registration name/mobile validation, keyboard focus, unsaved-discard confirmation and explicit unavailable-save notice. Email stays read-only pending verified email-change integration; station assignment/address stay read-only. Build and light/dark/large-text previews checked. No account update is persisted; authenticated account integration and interaction tests remain pending.
+
+## Manager notifications increment
+
+Profile and More now open operational notifications with station-scoped supplied alerts, newest-first ordering, action labels, loading/empty/unavailable states, detail screens and stock/delivery/price/station routes. Forecast destination remains unavailable. Build and light/dark/large-text missing-assignment previews checked. Server authorization, alert feeds, push delivery, read-state persistence and populated interactive verification remain pending.
+
+## Manager analytics increment
+
+More, Manager Profile and Sales History now open station-scoped sales analytics with 7-day and 30-day periods, complete-record totals, record count, latest timestamp and per-fuel breakdown. Calculations exclude deliveries, other stations, incomplete or invalid quantities, future records and records outside the selected period. Missing assignment, loading, unavailable and successful-empty states remain distinct; runtime defaults to unavailable until authorized sales records are connected. Build, three focused Swift Testing cases, and light plus dark/accessibility-size previews passed on iPhone 17 Pro (iOS 26.5). Real sales feeds, richer trends, export and populated interactive verification remain pending.
+
+## Firebase authentication integration increment
+
+Authentication now has an async service boundary, observable session state, persisted-session restoration, password sign-in, customer registration, password reset, sign-out and server-claim role routing. Customer, manager and administrator workspaces are selected only from the Firebase ID-token `role` claim; missing or unknown roles are blocked, and the client never assigns a privileged role. Registration deliberately remains pending until a trusted backend assigns the customer claim. Firebase initialization is guarded by both SDK availability and `GoogleService-Info.plist`, so missing configuration fails safely instead of crashing or simulating success. Build and four focused session tests passed.
+
+The iOS app is now registered to Firebase project `fuelsmart-lk` with bundle ID `thisara.FuelLanka`. `GoogleService-Info.plist`, `FirebaseAuth` and `FirebaseFirestore` are included, and Email/Password authentication is deployed from the checked-in Firebase CLI configuration. Live registration/sign-in validation and trusted role-claim assignment remain required before authentication is complete. Firestore database creation, Security Rules, Cloud Functions, APNs and data migration remain later integration increments. The proposal PDF is still not present in the accessible workspace.

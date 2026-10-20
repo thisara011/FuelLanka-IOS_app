@@ -10,6 +10,13 @@ import SwiftData
 
 @main
 struct FuelLankaApp: App {
+    @UIApplicationDelegateAdaptor(FirebaseAppDelegate.self) private var appDelegate
+    @State private var authentication = AuthenticationSession()
+
+    init() {
+        FirebaseConfiguration.configureIfNeeded()
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -25,7 +32,7 @@ struct FuelLankaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(authentication: authentication)
         }
         .modelContainer(sharedModelContainer)
     }

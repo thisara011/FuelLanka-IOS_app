@@ -1,0 +1,8 @@
+# Firebase local configuration and deployment cache
+FuelLanka/GoogleService-Info.plist
+.firebase/
+
+# Xcode per-user state
+**/xcuserdata/
+*.xcuserstate
+

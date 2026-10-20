@@ -3,13 +3,13 @@ import XCUIAutomation
 
 final class ResetPasswordUITests: XCTestCase {
     @MainActor
-    func testRecoveryValidationAndReturnToSignIn() {
+    func testRecoveryValidationAndMissingFirebaseConfiguration() {
         let app = XCUIApplication()
         app.launch()
         let start = app.buttons["welcome.getStarted"]
         XCTAssertTrue(start.waitForExistence(timeout: 5))
         start.tap()
-        let forgot = app.buttons["Forgot password?"]
+        let forgot = app.buttons["signIn.forgotPassword"]
         XCTAssertTrue(forgot.waitForExistence(timeout: 5))
         if !forgot.isHittable { app.swipeUp() }
         forgot.tap()
@@ -24,10 +24,9 @@ final class ResetPasswordUITests: XCTestCase {
         email.typeText("customer@example.com")
         app.buttons["Done"].tap()
         app.buttons["reset.submit"].tap()
-        let notice = app.alerts["Reset service not connected"]
+        let notice = app.alerts["Firebase not configured"]
         XCTAssertTrue(notice.waitForExistence(timeout: 3))
-        notice.buttons["Back to sign in"].tap()
-        XCTAssertTrue(app.textFields["signIn.email"].waitForExistence(timeout: 3))
-        XCTAssertFalse(app.textFields["reset.email"].exists)
+        notice.buttons["OK"].tap()
+        XCTAssertTrue(app.textFields["reset.email"].waitForExistence(timeout: 3))
     }
 }

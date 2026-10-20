@@ -1,11 +1,27 @@
 import SwiftUI
 
 struct ResetPasswordView: View {
+    let authentication: AuthenticationSession
+    var returnButtonTitle: LocalizedStringKey
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
     @State private var hasSubmitted = false
-    @State private var showsServiceNotice = false
+    @State private var showsResetConfirmation = false
+    @State private var showsAuthenticationIssue = false
     @FocusState private var emailIsFocused: Bool
+
+    init(
+        authentication: AuthenticationSession,
+        returnButtonTitle: LocalizedStringKey = "Back to sign in"
+    ) {
+        self.authentication = authentication
+        self.returnButtonTitle = returnButtonTitle
+    }
+
+    init(returnButtonTitle: LocalizedStringKey = "Back to sign in") {
+        authentication = AuthenticationSession()
+        self.returnButtonTitle = returnButtonTitle
+    }
 
     var body: some View {
         Form {
@@ -71,6 +87,7 @@ struct ResetPasswordView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .disabled(authentication.isSubmitting)
                 .accessibilityIdentifier("reset.submit")
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -108,11 +125,20 @@ struct ResetPasswordView: View {
                 Button("Done") { emailIsFocused = false }
             }
         }
-        .alert("Reset service not connected", isPresented: $showsServiceNotice) {
-            Button("Back to sign in") { dismiss() }
-            Button("Keep editing", role: .cancel) {}
+        .alert("Check your email", isPresented: $showsResetConfirmation) {
+            Button(returnButtonTitle) { dismiss() }
         } message: {
-            Text("No reset email has been sent. Your email passed the local format check, but account recovery will be available when the authentication service is connected.")
+            Text("If an account matches that address, Firebase has sent password-reset instructions.")
+        }
+        .alert(
+            authentication.issue?.title ?? "Password reset failed",
+            isPresented: $showsAuthenticationIssue
+        ) {
+            Button("OK", role: .cancel) {
+                authentication.clearIssue()
+            }
+        } message: {
+            Text(authentication.issue?.message ?? AuthenticationIssue.unknown.message)
         }
     }
 
@@ -123,7 +149,16 @@ struct ResetPasswordView: View {
             return
         }
         emailIsFocused = false
-        showsServiceNotice = true
+        Task {
+            let succeeded = await authentication.sendPasswordReset(
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            if succeeded {
+                showsResetConfirmation = true
+            } else {
+                showsAuthenticationIssue = true
+            }
+        }
     }
 }
 
@@ -133,7 +168,7 @@ private struct ResetPasswordStatus: View {
             Text("Account recovery")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color("WelcomeHeading"))
-            Text("Password recovery is not available yet. No reset email will be sent.")
+            Text("Firebase sends a private reset link when an account matches the submitted email.")
                 .font(.footnote)
                 .foregroundStyle(Color("WelcomeSecondary"))
                 .fixedSize(horizontal: false, vertical: true)

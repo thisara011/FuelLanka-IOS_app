@@ -7,13 +7,16 @@ enum CustomerTab: Hashable {
 /// Customer workspace presentation. The authentication coordinator must authorize
 /// the customer role before presenting this view; it does not create a session.
 struct CustomerWorkspaceView: View {
+    let authentication: AuthenticationSession
     @State private var selectedTab: CustomerTab = .home
+    @State private var stationStore = StationStore()
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "house", value: .home) {
                 NavigationStack {
                     CustomerHomeView(
+                        stationStore: stationStore,
                         onFindStations: { selectedTab = .find },
                         onViewOutlook: { selectedTab = .predict }
                     )
@@ -37,11 +40,12 @@ struct CustomerWorkspaceView: View {
                 )
             }
             Tab("Profile", systemImage: "person", value: .profile) {
-                CustomerPendingDestination(
-                    title: "Profile",
-                    symbol: "person",
-                    message: "Account details will be available after account services are connected."
-                )
+                NavigationStack {
+                    CustomerProfileView(
+                        authentication: authentication,
+                        onFindStations: { selectedTab = .find }
+                    )
+                }
             }
         }
         .tint(Color("WelcomeAccent"))
@@ -67,15 +71,15 @@ private struct CustomerPendingDestination: View {
 }
 
 #Preview("Customer Home") {
-    CustomerWorkspaceView()
+    CustomerWorkspaceView(authentication: AuthenticationSession())
 }
 
 #Preview("Customer Home Dark") {
-    CustomerWorkspaceView()
+    CustomerWorkspaceView(authentication: AuthenticationSession())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Customer Home Large Text") {
-    CustomerWorkspaceView()
+    CustomerWorkspaceView(authentication: AuthenticationSession())
         .environment(\.dynamicTypeSize, .accessibility3)
 }

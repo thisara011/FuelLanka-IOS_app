@@ -1,95 +1,41 @@
 import SwiftUI
 
 struct SignInView: View {
+    let authentication: AuthenticationSession
     @State private var email = ""
     @State private var password = ""
     @State private var hasSubmitted = false
-    @State private var showsServiceNotice = false
-    @State private var showsBiometricNotice = false
+    @State private var showsAuthenticationIssue = false
     @FocusState private var focusedField: Field?
 
-    private enum Field: Hashable {
+    fileprivate enum Field: Hashable {
         case email
         case password
     }
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(spacing: 30) {
                 SignInHeader()
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 7, bottom: 16, trailing: 7))
-            }
-
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Email")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color("WelcomeSecondary"))
-                    TextField("name@example.com", text: $email)
-                        .textContentType(.username)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.next)
-                        .focused($focusedField, equals: .email)
-                        .accessibilityLabel("Email")
-                        .accessibilityIdentifier("signIn.email")
-                        .frame(minHeight: 44)
-                        .onSubmit { focusedField = .password }
-                    if hasSubmitted, let error = SignInValidation.emailError(for: email) {
-                        SignInFieldError(message: error)
-                    }
-                }
-                .padding(.vertical, 6)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Password")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color("WelcomeSecondary"))
-                    SecureField("Enter your password", text: $password)
-                        .textContentType(.password)
-                        .submitLabel(.go)
-                        .focused($focusedField, equals: .password)
-                        .accessibilityLabel("Password")
-                        .accessibilityIdentifier("signIn.password")
-                        .frame(minHeight: 44)
-                        .onSubmit(submit)
-                    if hasSubmitted, let error = SignInValidation.passwordError(for: password) {
-                        SignInFieldError(message: error)
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-            .listRowBackground(Color.clear)
-
-            Section {
-                NavigationLink(value: AuthenticationRoute.resetPassword) {
-                    Text("Forgot password?")
-                        .font(.footnote.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .trailing)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color("WelcomeAccent"))
-                .listRowBackground(Color.clear)
-            }
-            .listSectionSpacing(8)
-
-            Section {
-                SignInActions(
-                    onPasswordSignIn: submit,
-                    onFaceIDSignIn: { showsBiometricNotice = true }
+                SignInCredentials(
+                    email: $email,
+                    password: $password,
+                    hasSubmitted: hasSubmitted,
+                    focusedField: $focusedField,
+                    onSubmit: submit
                 )
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                SignInControls(
+                    isSubmitting: authentication.isSubmitting,
+                    onPasswordSignIn: submit,
+                    onBiometricSignIn: signInWithBiometrics
+                )
             }
-            .listSectionSpacing(16)
-
+            .padding(.horizontal, 28)
+            .padding(.top, 44)
+            .padding(.bottom, 32)
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
         }
-        .formStyle(.grouped)
-        .listSectionSpacing(16)
-        .contentMargins(.top, 0, for: .scrollContent)
-        .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
         .background {
             LinearGradient(
@@ -101,7 +47,6 @@ struct SignInView: View {
         }
         .navigationTitle("Sign in")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
         .tint(Color("WelcomeAccent"))
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -109,18 +54,26 @@ struct SignInView: View {
                 Button("Done") { focusedField = nil }
             }
         }
-        .alert("Sign-in service not connected", isPresented: $showsServiceNotice) {
-            Button("OK", role: .cancel) {}
+        .alert(
+            authentication.issue?.title ?? "Authentication failed",
+            isPresented: $showsAuthenticationIssue
+        ) {
+            Button("OK", role: .cancel) {
+                authentication.clearIssue()
+            }
         } message: {
-            Text("Sign-in is not available yet. Your credentials have not been sent.")
-        }
-        .alert("Sign in with your password first", isPresented: $showsBiometricNotice) {
-            Button("Use password", role: .cancel) { focusedField = .email }
-        } message: {
-            Text("Face ID will be available to returning customers after signing in and choosing to enable it. Face ID is not available yet.")
+            Text(authentication.issue?.message ?? AuthenticationIssue.unknown.message)
         }
         .onDisappear {
             password = ""
+        }
+    }
+
+    private func signInWithBiometrics() {
+        focusedField = nil
+        Task {
+            let succeeded = await authentication.signInWithBiometrics()
+            showsAuthenticationIssue = !succeeded
         }
     }
 
@@ -132,26 +85,197 @@ struct SignInView: View {
             focusedField = .password
         } else {
             focusedField = nil
-            password = ""
-            hasSubmitted = false
-            showsServiceNotice = true
+            Task {
+                await authentication.signIn(
+                    email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                    password: password
+                )
+                password = ""
+                showsAuthenticationIssue = authentication.issue != nil
+            }
         }
     }
 }
 
 private struct SignInHeader: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(spacing: 10) {
+            Image(systemName: "fuelpump.fill")
+                .font(.largeTitle)
+                .foregroundStyle(Color("WelcomeAccent"))
+                .accessibilityHidden(true)
             Text("Welcome back")
-                .font(.title.bold())
-                .tracking(-0.6)
+                .font(.largeTitle.bold())
                 .foregroundStyle(Color("WelcomeHeading"))
                 .accessibilityAddTraits(.isHeader)
-            Text("Use password or Face ID to continue")
+            Text("Sign in to continue to FuelSmart LK")
                 .font(.subheadline)
                 .foregroundStyle(Color("WelcomeSecondary"))
         }
-        .fixedSize(horizontal: false, vertical: true)
+        .multilineTextAlignment(.center)
+    }
+}
+
+private struct SignInCredentials: View {
+    @Binding var email: String
+    @Binding var password: String
+    let hasSubmitted: Bool
+    let focusedField: FocusState<SignInView.Field?>.Binding
+    let onSubmit: () -> Void
+
+    var body: some View {
+        VStack(spacing: 18) {
+            SignInField(symbol: "person", title: "Email") {
+                TextField("name@example.com", text: $email)
+                    .textContentType(.username)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.next)
+                    .focused(focusedField, equals: .email)
+                    .onSubmit { focusedField.wrappedValue = .password }
+                    .accessibilityIdentifier("signIn.email")
+            }
+
+            if hasSubmitted, let error = SignInValidation.emailError(for: email) {
+                SignInFieldError(message: error)
+            }
+
+            SignInField(symbol: "lock", title: "Password") {
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .submitLabel(.go)
+                    .focused(focusedField, equals: .password)
+                    .onSubmit(onSubmit)
+                    .accessibilityIdentifier("signIn.password")
+            }
+
+            if hasSubmitted, let error = SignInValidation.passwordError(for: password) {
+                SignInFieldError(message: error)
+            }
+
+            NavigationLink(value: AuthenticationRoute.resetPassword) {
+                Text("Forgot Password?")
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .trailing)
+            }
+            .accessibilityIdentifier("signIn.forgotPassword")
+        }
+    }
+}
+
+private struct SignInField<Content: View>: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .frame(width: 24)
+                .foregroundStyle(Color("WelcomeSecondary"))
+                .accessibilityHidden(true)
+            content
+                .frame(minHeight: 48)
+                .accessibilityLabel(Text(title))
+        }
+        .padding(.horizontal, 14)
+        .background(Color(.secondarySystemBackground).opacity(0.72))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color("WelcomeSecondary").opacity(0.35))
+                .frame(height: 1)
+        }
+    }
+}
+
+private struct SignInControls: View {
+    private let biometricType = BiometricCredentialStore().biometricType
+
+    let isSubmitting: Bool
+    let onPasswordSignIn: () -> Void
+    let onBiometricSignIn: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            ViewThatFits {
+                HStack(spacing: 22) {
+                    biometricButtons
+                    signInButton
+                }
+                VStack(spacing: 16) {
+                    HStack(spacing: 28) {
+                        biometricButtons
+                    }
+                    signInButton
+                }
+            }
+
+            NavigationLink(value: AuthenticationRoute.createAccount) {
+                Text("New to FuelSmart LK? Create account")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .accessibilityIdentifier("signIn.createAccount")
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var biometricButtons: some View {
+        if biometricType != .unavailable {
+            BiometricButton(
+                title: LocalizedStringKey(biometricType.title),
+                systemImage: biometricType.systemImage,
+                action: onBiometricSignIn
+            )
+        }
+    }
+
+    private var signInButton: some View {
+        Button(action: onPasswordSignIn) {
+            HStack {
+                if isSubmitting {
+                    ProgressView()
+                        .tint(.white)
+                }
+                Text(isSubmitting ? "Signing in…" : "Sign in")
+                    .font(.headline)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .padding(.horizontal, 28)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.70, green: 0.10, blue: 0.17),
+                        Color(red: 0.45, green: 0.12, blue: 0.35)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+        }
+        .disabled(isSubmitting)
+        .accessibilityIdentifier("signIn.submit")
+    }
+}
+
+private struct BiometricButton: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(.largeTitle, design: .rounded))
+                .frame(width: 54, height: 54)
+                .foregroundStyle(Color("WelcomeHeading"))
+        }
+        .accessibilityLabel(title)
+        .accessibilityHint("Requires biometric setup after password sign-in")
     }
 }
 
@@ -166,79 +290,19 @@ private struct SignInFieldError: View {
         }
         .font(.footnote)
         .foregroundStyle(.red)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-private struct SignInActions: View {
-    let onPasswordSignIn: () -> Void
-    let onFaceIDSignIn: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Button(action: onPasswordSignIn) {
-                Text("Sign in with password")
-                    .font(.subheadline.weight(.semibold))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .foregroundStyle(.white)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.161, green: 0.486, blue: 0.902),
-                                Color(red: 0.078, green: 0.314, blue: 0.780)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        in: Capsule()
-                    )
-            }
-            .accessibilityIdentifier("signIn.submit")
-
-            Button(action: onFaceIDSignIn) {
-                Text("Sign in with Face ID")
-                    .font(.headline)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .background(Color(.secondarySystemGroupedBackground), in: Capsule())
-            }
-            .accessibilityIdentifier("signIn.faceID")
-
-            NavigationLink(value: AuthenticationRoute.createAccount) {
-                Text("New to FuelSmart?   Create account")
-                    .font(.footnote.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityIdentifier("signIn.createAccount")
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color("WelcomeAccent"))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 #Preview("Sign In") {
     NavigationStack {
-        SignInView()
+        SignInView(authentication: AuthenticationSession())
     }
 }
 
 #Preview("Sign In Dark") {
     NavigationStack {
-        SignInView()
+        SignInView(authentication: AuthenticationSession())
     }
     .preferredColorScheme(.dark)
-}
-
-#Preview("Sign In Large Text") {
-    NavigationStack {
-        SignInView()
-    }
-    .environment(\.dynamicTypeSize, .accessibility3)
 }
