@@ -2,13 +2,18 @@ import SwiftUI
 
 struct ManagerFuelPricesView: View {
     let station: StationDetails?
+    let publishChanges: ([FuelPriceDraft]) async throws -> Void
     @State private var drafts: [FuelPriceDraft]
     @State private var showsReview = false
     @State private var showsDiscard = false
     @FocusState private var focusedFuel: PricedFuel?
 
-    init(station: StationDetails?) {
+    init(
+        station: StationDetails?,
+        publishChanges: @escaping ([FuelPriceDraft]) async throws -> Void = { _ in }
+    ) {
         self.station = station
+        self.publishChanges = publishChanges
         _drafts = State(initialValue: FuelPriceDraft.rows(for: station))
     }
 
@@ -80,7 +85,7 @@ struct ManagerFuelPricesView: View {
                 Button("Discard draft", role: .destructive) { showsDiscard = true }
                     .disabled(!hasDraft)
             } footer: {
-                Text("Reviewing does not publish prices. Authorized price updates are not connected yet.")
+                Text("Review every price and effective time before publishing it.")
             }
         }
         .scrollContentBackground(.hidden)
@@ -96,7 +101,13 @@ struct ManagerFuelPricesView: View {
             }
         }
         .sheet(isPresented: $showsReview) {
-            NavigationStack { FuelPriceReviewView(stationName: station?.name ?? "", changes: changes) }
+            NavigationStack {
+                FuelPriceReviewView(
+                    stationName: station?.name ?? "",
+                    changes: changes,
+                    publishChanges: publishChanges
+                )
+            }
         }
         .confirmationDialog("Discard price draft?", isPresented: $showsDiscard, titleVisibility: .visible) {
             Button("Discard draft", role: .destructive) { drafts = FuelPriceDraft.rows(for: station) }
@@ -113,6 +124,9 @@ private struct FuelPriceReviewView: View {
     @Environment(\.dismiss) private var dismiss
     let stationName: String
     let changes: [FuelPriceDraft]
+    let publishChanges: ([FuelPriceDraft]) async throws -> Void
+    @State private var isPublishing = false
+    @State private var errorMessage: String?
 
     var body: some View {
         List {
@@ -140,8 +154,17 @@ private struct FuelPriceReviewView: View {
                 }
             }
             Section {
-                Button("Confirm and publish") {}.disabled(true)
-                Text("Publishing requires authorized station services. Your draft has not been saved.")
+                Button {
+                    Task { await publish() }
+                } label: {
+                    if isPublishing {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("Confirm and publish").frame(maxWidth: .infinity)
+                    }
+                }
+                .disabled(isPublishing)
+                Text("Published prices are timestamped and shown on the assigned station.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
@@ -150,7 +173,30 @@ private struct FuelPriceReviewView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Keep editing") { dismiss() }
+                    .disabled(isPublishing)
             }
+        }
+        .interactiveDismissDisabled(isPublishing)
+        .alert("Price update failed", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "The price update could not be published.")
+        }
+    }
+
+    private func publish() async {
+        guard !isPublishing else { return }
+        isPublishing = true
+        defer { isPublishing = false }
+
+        do {
+            try await publishChanges(changes)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

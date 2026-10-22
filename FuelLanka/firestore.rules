@@ -13,6 +13,30 @@ service cloud.firestore {
                      && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role));
     }
 
+    function managesStation(stationId) {
+      return hasRole("manager")
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedStationId == stationId;
+    }
+
+    function editableCustomerProfileFields() {
+      return [
+        "fullName", "email", "phone", "district", "preferredFuels",
+        "restockAlerts", "priceAlerts", "favouriteStationIDs", "updatedAt"
+      ];
+    }
+
+    function editableManagerProfileFields() {
+      return ["fullName", "phone", "updatedAt"];
+    }
+
+    function isSafeSelfUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (resource.data.role == "customer"
+              && changed.hasOnly(editableCustomerProfileFields()))
+             || (resource.data.role == "manager"
+                 && changed.hasOnly(editableManagerProfileFields()));
+    }
+
     match /users/{userId} {
       allow read: if (signedIn() && request.auth.uid == userId) || hasRole("admin");
       allow create: if (signedIn()
@@ -21,15 +45,64 @@ service cloud.firestore {
                     || hasRole("admin");
       allow update: if (signedIn()
                         && request.auth.uid == userId
-                        && request.resource.data.role == resource.data.role)
+                        && request.resource.data.role == resource.data.role
+                        && isSafeSelfUpdate())
                     || hasRole("admin");
-      allow delete: if hasRole("admin");
+      allow delete: if (signedIn() && request.auth.uid == userId) || hasRole("admin");
+
+      match /notificationTokens/{tokenId} {
+        allow read, create, update, delete: if signedIn() && request.auth.uid == userId;
+        allow read, delete: if hasRole("admin");
+      }
+
+      match /notifications/{notificationId} {
+        allow read, update, delete: if signedIn() && request.auth.uid == userId;
+        allow create: if false;
+      }
     }
 
     match /stations/{stationId} {
       allow read: if signedIn();
-      allow create, update: if hasRole("manager") || hasRole("admin");
+      allow create, update: if managesStation(stationId) || hasRole("admin");
       allow delete: if hasRole("admin");
+    }
+
+    match /stationAlerts/{alertId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.stationID is string
+                    && (managesStation(request.resource.data.stationID) || hasRole("admin"));
+      allow update, delete: if hasRole("admin");
+    }
+
+    match /communityFuelReports/{reportId} {
+      allow create: if hasRole("customer")
+                    && request.resource.data.reporterId == request.auth.uid
+                    && (!("reportingSuspended" in get(/databases/$(database)/documents/users/$(request.auth.uid)).data)
+                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.reportingSuspended != true)
+                    && request.resource.data.status == "pending"
+                    && request.resource.data.stationId is string
+                    && request.resource.data.fuel is string
+                    && request.resource.data.availability is string;
+      allow read: if hasRole("admin")
+                  || (hasRole("customer") && resource.data.reporterId == request.auth.uid)
+                  || managesStation(resource.data.stationId);
+      allow update: if hasRole("admin")
+                    || (managesStation(resource.data.stationId)
+                        && resource.data.status == "pending"
+                        && request.resource.data.status in ["accepted", "rejected"]
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(["status", "reviewedAt", "reviewedBy"]));
+      allow delete: if hasRole("admin");
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read: if hasRole("admin");
+      allow create: if hasRole("admin")
+                    || (hasRole("manager")
+                        && request.resource.data.actorUserId == request.auth.uid
+                        && request.resource.data.action in ["communityReportAccepted", "communityReportRejected"]);
+      allow update, delete: if false;
     }
   }
 }

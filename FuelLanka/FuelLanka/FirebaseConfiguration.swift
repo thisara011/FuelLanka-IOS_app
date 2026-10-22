@@ -27,11 +27,21 @@ enum FirebaseConfiguration {
 }
 
 final class FirebaseAppDelegate: NSObject, UIApplicationDelegate {
+    static weak var shared: FirebaseAppDelegate?
+
+    override init() {
+        super.init()
+        Self.shared = self
+    }
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseConfiguration.configureIfNeeded()
+        Task { @MainActor in
+            NotificationService.shared.configure()
+        }
         return true
     }
 }

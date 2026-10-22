@@ -1,8 +1,10 @@
 import SwiftUI
+import CoreLocation
 
 struct FuelComparisonView: View {
     var stations: [StationDetails]? = nil
     @State private var fuel: FuelGrade = .petrol92
+    @State private var location = MapLocationController()
 
     var body: some View {
         ScrollView {
@@ -18,9 +20,29 @@ struct FuelComparisonView: View {
                 .pickerStyle(.menu)
                 .frame(minHeight: 44)
 
+                Button {
+                    location.locate()
+                } label: {
+                    Label(
+                        location.isLocating ? "Finding your location…" : "Calculate distance",
+                        systemImage: "location"
+                    )
+                }
+                .buttonStyle(.bordered)
+                .disabled(location.isLocating)
+                if let message = location.message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
                 if let stations, !stations.isEmpty {
                     ForEach(stations) { station in
-                        ComparisonStationCard(station: station, fuel: fuel)
+                        ComparisonStationCard(
+                            station: station,
+                            fuel: fuel,
+                            userCoordinate: location.coordinate
+                        )
                     }
                     if stations.count == 1 {
                         Text("Save another station to compare the same fuel at different locations.")
@@ -62,6 +84,7 @@ struct FuelComparisonView: View {
 private struct ComparisonStationCard: View {
     let station: StationDetails
     let fuel: FuelGrade
+    let userCoordinate: CLLocationCoordinate2D?
 
     private var report: StationFuelReport? {
         station.reports.filter { $0.fuel == fuel }.max {
@@ -102,7 +125,12 @@ private struct ComparisonStationCard: View {
             } else {
                 Text("No report for this fuel grade")
             }
-            Text("Distance unavailable").foregroundStyle(.secondary)
+            if let distanceKilometres {
+                Text("Straight-line distance: \(distanceKilometres, format: .number.precision(.fractionLength(1))) km")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Distance unavailable").foregroundStyle(.secondary)
+            }
             NavigationLink {
                 StationDetailsView(station: station)
             } label: {
@@ -114,6 +142,18 @@ private struct ComparisonStationCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+    }
+
+    private var distanceKilometres: Double? {
+        guard let userCoordinate,
+              let latitude = station.latitude,
+              let longitude = station.longitude else { return nil }
+        let origin = CLLocation(
+            latitude: userCoordinate.latitude,
+            longitude: userCoordinate.longitude
+        )
+        let destination = CLLocation(latitude: latitude, longitude: longitude)
+        return origin.distance(from: destination) / 1_000
     }
 }
 

@@ -36,6 +36,7 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
     case missingRegistrationEmail
     case roleNotAssigned
     case unauthorizedRole
+    case accountDeletionFailed
     case unknown
 
     var title: LocalizedStringResource {
@@ -56,6 +57,7 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
         case .missingRegistrationEmail: "Enter your email again"
         case .roleNotAssigned: "Account setup pending"
         case .unauthorizedRole: "Access not authorized"
+        case .accountDeletionFailed: "Account was not deleted"
         case .unknown: "Authentication failed"
         }
     }
@@ -94,6 +96,8 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
             "Your account was created, but server-authorized workspace access has not been assigned yet."
         case .unauthorizedRole:
             "This account does not have an authorized FuelSmart LK role."
+        case .accountDeletionFailed:
+            "Your account remains active. Sign in again and retry, or contact support if the problem continues."
         case .unknown:
             "The authentication request could not be completed. Try again."
         }
@@ -104,12 +108,32 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
 protocol AuthenticationService {
     func restoreAccount() async throws -> AuthenticatedAccount?
     func signIn(email: String, password: String) async throws -> AuthenticatedAccount
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async throws -> AuthenticatedAccount
     func registerCustomer(email: String, password: String) async throws -> AuthenticatedAccount
     func sendRegistrationLink(email: String) async throws
     func completeRegistrationLink(_ url: URL) async throws -> AuthenticatedAccount
     func updatePassword(_ password: String) async throws
     func sendPasswordReset(email: String) async throws
+    func deleteCurrentAccount(password: String?) async throws
     func signOut() throws
+}
+
+extension AuthenticationService {
+    func deleteCurrentAccount(password: String?) async throws {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async throws -> AuthenticatedAccount {
+        throw AuthenticationIssue.configurationMissing
+    }
 }
 
 @MainActor
@@ -122,7 +146,7 @@ struct FirebaseAuthenticationService: AuthenticationService {
             throw AuthenticationIssue.configurationMissing
         }
         guard let user = Auth.auth().currentUser else { return nil }
-        return try await account(for: user)
+        return try await account(for: user, mayCreateCustomerRecord: false)
         #else
         throw AuthenticationIssue.configurationMissing
         #endif
@@ -134,8 +158,40 @@ struct FirebaseAuthenticationService: AuthenticationService {
             throw AuthenticationIssue.configurationMissing
         }
         do {
-            let result = try await Auth.auth().signIn(withEmail: email, password: password)
-            return try await account(for: result.user)
+            let normalizedEmail = normalized(email)
+            let result = try await Auth.auth().signIn(withEmail: normalizedEmail, password: password)
+            return try await authorizedAccount(
+                for: result.user,
+                mayCreateCustomerRecord: false
+            )
+        } catch {
+            throw map(error)
+        }
+        #else
+        throw AuthenticationIssue.configurationMissing
+        #endif
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async throws -> AuthenticatedAccount {
+        #if canImport(FirebaseAuth)
+        guard FirebaseConfiguration.isAvailable else {
+            throw AuthenticationIssue.configurationMissing
+        }
+        do {
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: rawNonce,
+                fullName: fullName
+            )
+            let result = try await Auth.auth().signIn(with: credential)
+            return try await authorizedAccount(
+                for: result.user,
+                mayCreateCustomerRecord: result.additionalUserInfo?.isNewUser == true
+            )
         } catch {
             throw map(error)
         }
@@ -151,7 +207,7 @@ struct FirebaseAuthenticationService: AuthenticationService {
         }
         do {
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            return try await account(for: result.user)
+            return try await authorizedAccount(for: result.user, mayCreateCustomerRecord: true)
         } catch {
             throw map(error)
         }
@@ -203,7 +259,10 @@ struct FirebaseAuthenticationService: AuthenticationService {
             let result = try await Auth.auth().signIn(withEmail: email, link: link)
             UserDefaults.standard.removeObject(forKey: Self.pendingRegistrationEmailKey)
             try await addDefaultDisplayNameIfNeeded(to: result.user, email: email)
-            return try await account(for: result.user)
+            return try await authorizedAccount(
+                for: result.user,
+                mayCreateCustomerRecord: result.additionalUserInfo?.isNewUser == true
+            )
         } catch let issue as AuthenticationIssue {
             throw issue
         } catch {
@@ -235,9 +294,60 @@ struct FirebaseAuthenticationService: AuthenticationService {
             throw AuthenticationIssue.configurationMissing
         }
         do {
-            try await Auth.auth().sendPasswordReset(withEmail: email)
+            try await Auth.auth().sendPasswordReset(withEmail: normalized(email))
         } catch {
             throw map(error)
+        }
+        #else
+        throw AuthenticationIssue.configurationMissing
+        #endif
+    }
+
+    func deleteCurrentAccount(password: String?) async throws {
+        #if canImport(FirebaseAuth)
+        guard FirebaseConfiguration.isAvailable,
+              let user = Auth.auth().currentUser else {
+            throw AuthenticationIssue.configurationMissing
+        }
+
+        do {
+            if user.providerData.contains(where: { $0.providerID == "password" }) {
+                guard let email = user.email,
+                      let password,
+                      !password.isEmpty else {
+                    throw AuthenticationIssue.invalidCredentials
+                }
+                let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+                try await user.reauthenticate(with: credential)
+            }
+
+            let database = Firestore.firestore()
+            let userReference = database.collection("users").document(user.uid)
+            let profileSnapshot = try await userReference.getDocument()
+            let profileData = profileSnapshot.data()
+
+            for collectionName in ["notificationTokens", "notifications"] {
+                let snapshot = try await userReference.collection(collectionName).getDocuments()
+                for document in snapshot.documents {
+                    try await document.reference.delete()
+                }
+            }
+            try await userReference.delete()
+
+            do {
+                try await user.delete()
+                BiometricCredentialStore().remove()
+            } catch {
+                if let profileData {
+                    try? await userReference.setData(profileData)
+                }
+                throw error
+            }
+        } catch let issue as AuthenticationIssue {
+            throw issue
+        } catch {
+            let mappedIssue = map(error)
+            throw mappedIssue == .unknown ? AuthenticationIssue.accountDeletionFailed : mappedIssue
         }
         #else
         throw AuthenticationIssue.configurationMissing
@@ -260,12 +370,36 @@ struct FirebaseAuthenticationService: AuthenticationService {
     }
 
     #if canImport(FirebaseAuth)
-    private func account(for user: User) async throws -> AuthenticatedAccount {
+    private func authorizedAccount(
+        for user: User,
+        mayCreateCustomerRecord: Bool
+    ) async throws -> AuthenticatedAccount {
+        do {
+            return try await account(
+                for: user,
+                mayCreateCustomerRecord: mayCreateCustomerRecord
+            )
+        } catch {
+            // Firebase can establish a local session before application-level
+            // authorization fails. Remove it so rejected users cannot continue.
+            try? Auth.auth().signOut()
+            throw error
+        }
+    }
+
+    private func account(
+        for user: User,
+        mayCreateCustomerRecord: Bool
+    ) async throws -> AuthenticatedAccount {
         do {
             let token = try await user.getIDTokenResult(forcingRefresh: true)
-            let role = try await assignedRole(for: user, tokenClaims: token.claims)
+            let role = try await assignedRole(
+                for: user,
+                tokenClaims: token.claims,
+                mayCreateCustomerRecord: mayCreateCustomerRecord
+            )
 
-            if role == .customer {
+            if role == .customer, mayCreateCustomerRecord {
                 try await ensureCustomerRecord(for: user)
             }
 
@@ -285,8 +419,30 @@ struct FirebaseAuthenticationService: AuthenticationService {
 
     private func assignedRole(
         for user: User,
-        tokenClaims: [String: Any]
+        tokenClaims: [String: Any],
+        mayCreateCustomerRecord: Bool
     ) async throws -> AccountRole {
+        let document = try await Firestore.firestore()
+            .collection("users")
+            .document(user.uid)
+            .getDocument()
+
+        if let data = document.data() {
+            guard let roleValue = data["role"] as? String else {
+                throw AuthenticationIssue.roleNotAssigned
+            }
+            guard let role = AccountRole(rawValue: roleValue) else {
+                throw AuthenticationIssue.unauthorizedRole
+            }
+            return role
+        }
+
+        if mayCreateCustomerRecord {
+            return .customer
+        }
+
+        // Custom claims remain a secure fallback when privileged server
+        // tooling assigns a role before creating the Firestore profile.
         if let roleValue = tokenClaims["role"] as? String {
             guard let role = AccountRole(rawValue: roleValue) else {
                 throw AuthenticationIssue.unauthorizedRole
@@ -294,18 +450,11 @@ struct FirebaseAuthenticationService: AuthenticationService {
             return role
         }
 
-        let document = try await Firestore.firestore()
-            .collection("users")
-            .document(user.uid)
-            .getDocument()
+        throw AuthenticationIssue.roleNotAssigned
+    }
 
-        guard let roleValue = document.data()?["role"] as? String else {
-            return .customer
-        }
-        guard let role = AccountRole(rawValue: roleValue) else {
-            throw AuthenticationIssue.unauthorizedRole
-        }
-        return role
+    private func normalized(_ email: String) -> String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private func ensureCustomerRecord(for user: User) async throws {
@@ -422,15 +571,33 @@ final class AuthenticationSession {
     func signIn(email: String, password: String) async {
         await perform {
             let account = try await service.signIn(email: email, password: password)
-            status = .authenticated(account)
+            transition(to: account)
         }
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async -> Bool {
+        var succeeded = false
+        await perform {
+            let account = try await service.signInWithApple(
+                idToken: idToken,
+                rawNonce: rawNonce,
+                fullName: fullName
+            )
+            transition(to: account)
+            succeeded = true
+        }
+        return succeeded
     }
 
     func registerCustomer(email: String, password: String) async -> Bool {
         var succeeded = false
         await perform {
             let account = try await service.registerCustomer(email: email, password: password)
-            status = .authenticated(account)
+            transition(to: account)
             succeeded = true
         }
         return succeeded
@@ -543,20 +710,39 @@ final class AuthenticationSession {
         return succeeded
     }
 
-    func signOut() {
-        do {
-            try service.signOut()
+    func deleteAccount(password: String?) async -> Bool {
+        var succeeded = false
+        await perform {
+            try await service.deleteCurrentAccount(password: password)
+            BiometricCredentialStore().remove()
             status = .signedOut
-            issue = nil
-        } catch let authIssue as AuthenticationIssue {
-            issue = authIssue
-        } catch {
-            issue = .unknown
+            succeeded = true
+        }
+        return succeeded
+    }
+
+    func signOut() {
+        let userID = currentAccount?.id
+        Task {
+            await NotificationService.shared.removeCurrentToken(userID: userID)
+            do {
+                try service.signOut()
+                status = .signedOut
+                issue = nil
+            } catch let authIssue as AuthenticationIssue {
+                issue = authIssue
+            } catch {
+                issue = .unknown
+            }
         }
     }
 
     func clearIssue() {
         issue = nil
+    }
+
+    private func transition(to account: AuthenticatedAccount) {
+        status = account.hasPassword ? .authenticated(account) : .passwordSetup(account)
     }
 
     private func perform(_ operation: () async throws -> Void) async {

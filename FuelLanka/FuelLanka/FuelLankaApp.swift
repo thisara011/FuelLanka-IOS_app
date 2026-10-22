@@ -11,10 +11,14 @@ import SwiftData
 @main
 struct FuelLankaApp: App {
     @UIApplicationDelegateAdaptor(FirebaseAppDelegate.self) private var appDelegate
-    @State private var authentication = AuthenticationSession()
+    @State private var authentication: AuthenticationSession
 
     init() {
         FirebaseConfiguration.configureIfNeeded()
+        let service: any AuthenticationService = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+            ? UITestAuthenticationService()
+            : FirebaseAuthenticationService()
+        _authentication = State(initialValue: AuthenticationSession(service: service))
     }
 
     var sharedModelContainer: ModelContainer = {
@@ -36,4 +40,35 @@ struct FuelLankaApp: App {
         }
         .modelContainer(sharedModelContainer)
     }
+}
+
+@MainActor
+private struct UITestAuthenticationService: AuthenticationService {
+    func restoreAccount() async throws -> AuthenticatedAccount? { nil }
+
+    func signIn(email: String, password: String) async throws -> AuthenticatedAccount {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func registerCustomer(email: String, password: String) async throws -> AuthenticatedAccount {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func sendRegistrationLink(email: String) async throws {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func completeRegistrationLink(_ url: URL) async throws -> AuthenticatedAccount {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func updatePassword(_ password: String) async throws {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func sendPasswordReset(email: String) async throws {
+        throw AuthenticationIssue.configurationMissing
+    }
+
+    func signOut() throws {}
 }

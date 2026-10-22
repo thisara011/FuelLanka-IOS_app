@@ -5,15 +5,22 @@ struct EditManagerProfileView: View {
     private let initialName: String
     private let initialPhone: String
     private let email: String?
+    private let saveProfile: (String, String) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var form: RegistrationForm
     @State private var hasSubmitted = false
-    @State private var showsServiceNotice = false
+    @State private var isSaving = false
+    @State private var errorMessage: String?
     @State private var showsDiscard = false
     @FocusState private var focusedField: RegistrationField?
 
-    init(profile: ManagerProfile?, station: StationDetails?) {
+    init(
+        profile: ManagerProfile?,
+        station: StationDetails?,
+        saveProfile: @escaping (String, String) async throws -> Void = { _, _ in }
+    ) {
         self.station = station
+        self.saveProfile = saveProfile
         initialName = profile?.fullName ?? ""
         initialPhone = profile?.phone ?? ""
         email = profile?.email
@@ -31,7 +38,7 @@ struct EditManagerProfileView: View {
         Form {
             Section {
                 Text("Keep your contact details current for station alerts.")
-                Text("Changes remain an unsaved draft until account services are connected.")
+                Text("Your changes are saved to your manager account.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Full name") {
@@ -72,7 +79,7 @@ struct EditManagerProfileView: View {
                 Text("Only an administrator can change your station assignment.")
             }
             Section {
-                Button("Save changes", action: submit)
+                Button("Save changes") { Task { await submit() } }
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .disabled(!hasChanges)
             }
@@ -99,14 +106,17 @@ struct EditManagerProfileView: View {
             Button("Discard changes", role: .destructive) { dismiss() }
             Button("Keep editing", role: .cancel) {}
         }
-        .alert("Profile service unavailable", isPresented: $showsServiceNotice) {
-            Button("Keep editing", role: .cancel) {}
+        .alert("Profile update failed", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
         } message: {
-            Text("Your contact details passed local validation, but no changes have been saved.")
+            Text(errorMessage ?? "Your changes could not be saved.")
         }
     }
 
-    private func submit() {
+    private func submit() async {
         hasSubmitted = true
         for field in [RegistrationField.fullName, .mobile] {
             if form.error(for: field) != nil {
@@ -115,7 +125,14 @@ struct EditManagerProfileView: View {
             }
         }
         focusedField = nil
-        showsServiceNotice = true
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await saveProfile(form.fullName, form.mobile)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

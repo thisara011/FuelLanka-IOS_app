@@ -2,13 +2,18 @@ import SwiftUI
 
 struct ManagerStockUpdateView: View {
     let station: StationDetails?
+    let saveChanges: ([StockUpdateDraft]) async throws -> Void
     @State private var drafts: [StockUpdateDraft]
     @State private var showsReview = false
     @State private var showsDiscard = false
     @FocusState private var focusedFuel: FuelGrade?
 
-    init(station: StationDetails?) {
+    init(
+        station: StationDetails?,
+        saveChanges: @escaping ([StockUpdateDraft]) async throws -> Void = { _ in }
+    ) {
         self.station = station
+        self.saveChanges = saveChanges
         _drafts = State(initialValue: StockUpdateDraft.rows(for: station))
     }
 
@@ -76,7 +81,7 @@ struct ManagerStockUpdateView: View {
                 Button("Discard draft", role: .destructive) { showsDiscard = true }
                     .disabled(changes.isEmpty)
             } footer: {
-                Text("Stock writes are not connected yet. Reviewing a draft does not update inventory.")
+                Text("Review every measured total before saving it to the assigned station.")
             }
         }
         .scrollContentBackground(.hidden)
@@ -93,7 +98,11 @@ struct ManagerStockUpdateView: View {
         }
         .sheet(isPresented: $showsReview) {
             NavigationStack {
-                StockUpdateReviewView(stationName: station?.name ?? "", changes: changes)
+                StockUpdateReviewView(
+                    stationName: station?.name ?? "",
+                    changes: changes,
+                    saveChanges: saveChanges
+                )
             }
         }
         .confirmationDialog("Discard stock draft?", isPresented: $showsDiscard, titleVisibility: .visible) {
@@ -114,6 +123,9 @@ private struct StockUpdateReviewView: View {
     @Environment(\.dismiss) private var dismiss
     let stationName: String
     let changes: [StockUpdateDraft]
+    let saveChanges: ([StockUpdateDraft]) async throws -> Void
+    @State private var isSaving = false
+    @State private var errorMessage: String?
 
     var body: some View {
         List {
@@ -142,10 +154,21 @@ private struct StockUpdateReviewView: View {
                 }
             }
             Section {
-                Button("Confirm and save") {}
-                    .disabled(true)
-                Text("Saving is unavailable until authorized station writes are connected.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                Button {
+                    Task { await save() }
+                } label: {
+                    if isSaving {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("Confirm and save")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .disabled(isSaving)
+                Text("This creates a timestamped stock report for your assigned station.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Review stock")
@@ -153,7 +176,30 @@ private struct StockUpdateReviewView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Keep editing") { dismiss() }
+                    .disabled(isSaving)
             }
+        }
+        .interactiveDismissDisabled(isSaving)
+        .alert("Stock update failed", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "The stock update could not be saved.")
+        }
+    }
+
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
+        do {
+            try await saveChanges(changes)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

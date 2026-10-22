@@ -7,6 +7,8 @@ struct StationDetails: Identifiable, Hashable {
     var address: String?
     var operatorName: String?
     var openingHours: String?
+    var phoneNumber: String?
+    var sourceURL: URL?
     var latitude: Double?
     var longitude: Double?
     var reports: [StationFuelReport] = []

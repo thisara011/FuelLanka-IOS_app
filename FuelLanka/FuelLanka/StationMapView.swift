@@ -11,6 +11,8 @@ enum SriLankaMap {
 /// Nil means the station feed is unavailable, rather than a successful empty result.
 struct StationMapView: View {
     var stations: [StationDetails]? = nil
+    var favourites: FavouriteStationStore? = nil
+    var userID: String? = nil
     let onListView: () -> Void
     @State private var camera: MapCameraPosition = .region(SriLankaMap.region)
     @State private var location = MapLocationController()
@@ -96,7 +98,11 @@ struct StationMapView: View {
 
                     if let station = selectedStation {
                         NavigationLink {
-                            StationDetailsView(station: station)
+                            StationDetailsView(
+                                station: station,
+                                favourites: favourites,
+                                userID: userID
+                            )
                         } label: {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(station.name).font(.headline)

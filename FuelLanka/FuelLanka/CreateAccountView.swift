@@ -30,6 +30,19 @@ struct CreateAccountView: View {
             }
 
             Section {
+                VStack(spacing: 12) {
+                    Text("Or continue securely")
+                        .font(.footnote)
+                        .foregroundStyle(Color("WelcomeSecondary"))
+                    AppleAuthenticationButton(
+                        authentication: authentication,
+                        onFailure: { showsAuthenticationIssue = true }
+                    )
+                }
+            }
+            .listRowBackground(Color.clear)
+
+            Section {
                 Button("Already registered? Sign in") {
                     dismiss()
                 }

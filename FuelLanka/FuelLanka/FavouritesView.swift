@@ -1,9 +1,16 @@
 import SwiftUI
 
-/// Nil represents unavailable account data; an empty array represents no saved stations.
 struct FavouritesView: View {
-    var stations: [StationDetails]? = nil
+    let allStations: [StationDetails]
+    let store: FavouriteStationStore
+    let userID: String
     let onFindStations: () -> Void
+
+    private var savedStations: [StationDetails] {
+        allStations
+            .filter { store.stationIDs.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 
     var body: some View {
         ScrollView {
@@ -12,39 +19,14 @@ struct FavouritesView: View {
                     .font(.title3.bold())
                     .accessibilityAddTraits(.isHeader)
 
-                if let stations, !stations.isEmpty {
-                    ForEach(stations) { station in
-                        NavigationLink {
-                            StationDetailsView(station: station)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(station.name).font(.headline)
-                                if let address = station.address {
-                                    Text(address).font(.subheadline).foregroundStyle(.secondary)
-                                }
-                                Label("View station reports", systemImage: "chevron.right")
-                                    .font(.footnote)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(18)
-                            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } else {
-                    ContentUnavailableView {
-                        Label(stations == nil ? "Favourites unavailable" : "No saved stations", systemImage: "heart")
-                    } description: {
-                        Text(stations == nil
-                             ? "Your account’s saved stations cannot be loaded yet."
-                             : "Save stations from their details to find them here.")
-                    }
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
-                }
+                FavouriteStationContent(
+                    stations: savedStations,
+                    state: store.state,
+                    store: store,
+                    userID: userID
+                )
 
-                Button {
-                    onFindStations()
-                } label: {
+                Button(action: onFindStations) {
                     Text("Find more stations")
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity, minHeight: 44)
@@ -54,12 +36,13 @@ struct FavouritesView: View {
                 .buttonBorderShape(.capsule)
 
                 NavigationLink {
-                    FuelComparisonView(stations: stations)
+                    FuelComparisonView(stations: savedStations)
                 } label: {
                     Label("Compare saved fuel prices", systemImage: "arrow.left.arrow.right")
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
                 .buttonStyle(.bordered)
+                .disabled(savedStations.isEmpty)
 
                 Text("Favourite widgets will be available in a later update.")
                     .font(.footnote)
@@ -69,6 +52,7 @@ struct FavouritesView: View {
             .frame(maxWidth: 650)
             .frame(maxWidth: .infinity)
         }
+        .refreshable { await store.load(userID: userID) }
         .background(Color("WelcomeBackgroundTop"))
         .foregroundStyle(Color("WelcomeHeading"))
         .tint(Color("WelcomeAccent"))
@@ -77,6 +61,98 @@ struct FavouritesView: View {
     }
 }
 
+private struct FavouriteStationContent: View {
+    let stations: [StationDetails]
+    let state: FavouriteStationState
+    let store: FavouriteStationStore
+    let userID: String
+
+    var body: some View {
+        switch state {
+        case .idle, .loading:
+            ProgressView("Loading favourites…")
+                .frame(maxWidth: .infinity, minHeight: 120)
+        case .failed(let message):
+            ContentUnavailableView {
+                Label("Favourites unavailable", systemImage: "heart.slash")
+            } description: {
+                Text(message)
+            }
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+        case .loaded where stations.isEmpty:
+            ContentUnavailableView {
+                Label("No saved stations", systemImage: "heart")
+            } description: {
+                Text("Open a station and select Save to favourites.")
+            }
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+        case .loaded:
+            ForEach(stations) { station in
+                FavouriteStationRow(
+                    station: station,
+                    store: store,
+                    userID: userID,
+                    isUpdating: store.updatingStationIDs.contains(station.id),
+                    remove: {
+                        Task {
+                            await store.toggle(stationID: station.id, userID: userID)
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
+
+private struct FavouriteStationRow: View {
+    let station: StationDetails
+    let store: FavouriteStationStore
+    let userID: String
+    let isUpdating: Bool
+    let remove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            NavigationLink {
+                StationDetailsView(
+                    station: station,
+                    favourites: store,
+                    userID: userID
+                )
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(station.name).font(.headline)
+                    if let address = station.address {
+                        Text(address)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Label("View station reports", systemImage: "chevron.right")
+                        .font(.footnote)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            Button(role: .destructive, action: remove) {
+                Image(systemName: "heart.slash")
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(isUpdating)
+            .accessibilityLabel("Remove \(station.name) from favourites")
+        }
+        .padding(18)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+    }
+}
+
 #Preview("Favourites") {
-    NavigationStack { FavouritesView(onFindStations: {}) }
+    NavigationStack {
+        FavouritesView(
+            allStations: [],
+            store: FavouriteStationStore(),
+            userID: "preview",
+            onFindStations: {}
+        )
+    }
 }

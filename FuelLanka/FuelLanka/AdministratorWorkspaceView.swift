@@ -10,6 +10,7 @@ struct AdministratorUser: Identifiable, Equatable, Sendable {
     let email: String
     let displayName: String
     let role: AccountRole
+    let assignedStationID: String?
 }
 
 @MainActor
@@ -42,7 +43,8 @@ final class AdministratorUserStore {
                     id: document.documentID,
                     email: data["email"] as? String ?? "Email unavailable",
                     displayName: data["fullName"] as? String ?? "",
-                    role: role
+                    role: role,
+                    assignedStationID: data["assignedStationId"] as? String
                 )
             }
         } catch {
@@ -55,6 +57,45 @@ final class AdministratorUserStore {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    func updateAccess(
+        for user: AdministratorUser,
+        role: AccountRole,
+        assignedStationID: String?,
+        administratorID: String
+    ) async throws {
+        #if canImport(FirebaseFirestore)
+        let normalizedStationID = role == .manager ? assignedStationID : nil
+        if role == .manager && normalizedStationID == nil {
+            throw AdministratorOperationError.managerRequiresStation
+        }
+
+        let database = Firestore.firestore()
+        let userReference = database.collection("users").document(user.id)
+        let auditReference = database.collection("adminAuditLogs").document()
+        let batch = database.batch()
+        var changes: [String: Any] = [
+            "role": role.rawValue,
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        changes["assignedStationId"] = normalizedStationID ?? FieldValue.delete()
+        batch.updateData(changes, forDocument: userReference)
+        batch.setData([
+            "action": "userAccessUpdated",
+            "actorUserId": administratorID,
+            "targetId": user.id,
+            "targetLabel": user.email,
+            "details": role == .manager
+                ? "Role changed to manager and station assigned."
+                : "Role changed to \(role.rawValue).",
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: auditReference)
+        try await batch.commit()
+        await loadUsers()
+        #else
+        throw AdministratorOperationError.firestoreUnavailable
+        #endif
     }
 
     func updateRole(for user: AdministratorUser, to role: AccountRole) async {
@@ -73,7 +114,8 @@ final class AdministratorUserStore {
                     id: user.id,
                     email: user.email,
                     displayName: user.displayName,
-                    role: role
+                    role: role,
+                    assignedStationID: role == .manager ? user.assignedStationID : nil
                 )
             }
         } catch {
@@ -87,7 +129,9 @@ final class AdministratorUserStore {
 
 private enum AdministratorTab: Hashable {
     case overview
+    case stations
     case users
+    case audit
     case account
 }
 
@@ -95,39 +139,60 @@ struct AdministratorWorkspaceView: View {
     let authentication: AuthenticationSession
 
     @State private var userStore = AdministratorUserStore()
+    @State private var stationStore = StationStore()
+    @State private var auditStore = AdministratorAuditStore()
     @State private var selectedTab: AdministratorTab = .overview
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Overview", systemImage: "chart.bar.xaxis", value: .overview) {
                 NavigationStack {
-                    AdministratorOverviewView(users: userStore.users) {
-                        selectedTab = .users
-                    }
+                    AdministratorOverviewView(
+                        users: userStore.users,
+                        stations: stationStore.stations,
+                        stationState: stationStore.state,
+                        showStations: { selectedTab = .stations },
+                        showUsers: { selectedTab = .users }
+                    )
+                }
+            }
+
+            Tab("Stations", systemImage: "fuelpump", value: .stations) {
+                NavigationStack {
+                    AdministratorStationManagementView(store: stationStore)
                 }
             }
 
             Tab("Users", systemImage: "person.2", value: .users) {
                 NavigationStack {
-                    AdministratorUsersView(
+                    AdministratorUserManagementView(
                         store: userStore,
+                        stations: stationStore.stations,
                         currentUserID: authentication.currentAccount?.id
+                    )
+                }
+            }
+
+            Tab("Audit", systemImage: "list.bullet.clipboard", value: .audit) {
+                NavigationStack {
+                    AdministratorAuditView(
+                        store: auditStore,
+                        administratorID: authentication.currentAccount?.id ?? ""
                     )
                 }
             }
 
             Tab("Account", systemImage: "person.crop.circle", value: .account) {
                 NavigationStack {
-                    AdministratorAccountView(
-                        email: authentication.currentAccount?.email,
-                        signOut: authentication.signOut
-                    )
+                    AdministratorAccountView(authentication: authentication)
                 }
             }
         }
         .tint(Color("WelcomeAccent"))
         .task {
-            await userStore.loadUsers()
+            async let users: Void = userStore.loadUsers()
+            async let stations: Void = stationStore.load()
+            _ = await (users, stations)
         }
         .alert(
             "Administrator service unavailable",
@@ -147,6 +212,9 @@ struct AdministratorWorkspaceView: View {
 
 private struct AdministratorOverviewView: View {
     let users: [AdministratorUser]
+    let stations: [StationDetails]
+    let stationState: StationLoadingState
+    let showStations: () -> Void
     let showUsers: () -> Void
 
     var body: some View {
@@ -154,11 +222,36 @@ private struct AdministratorOverviewView: View {
             VStack(spacing: 20) {
                 AdministratorHeader()
                 AdministratorRoleSummary(users: users)
-                Button(action: showUsers) {
-                    Label("Manage user access", systemImage: "person.badge.key")
-                        .frame(maxWidth: .infinity, minHeight: 48)
+                AdministratorStationSummary(
+                    stations: stations,
+                    state: stationState
+                )
+                ViewThatFits {
+                    HStack {
+                        AdministratorOverviewButton(
+                            title: "Review stations",
+                            symbol: "fuelpump",
+                            action: showStations
+                        )
+                        AdministratorOverviewButton(
+                            title: "Manage users",
+                            symbol: "person.badge.key",
+                            action: showUsers
+                        )
+                    }
+                    VStack {
+                        AdministratorOverviewButton(
+                            title: "Review stations",
+                            symbol: "fuelpump",
+                            action: showStations
+                        )
+                        AdministratorOverviewButton(
+                            title: "Manage users",
+                            symbol: "person.badge.key",
+                            action: showUsers
+                        )
+                    }
                 }
-                .buttonStyle(.borderedProminent)
             }
             .padding()
         }
@@ -222,6 +315,289 @@ private struct AdministratorCountRow: View {
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct AdministratorOverviewButton: View {
+    let title: LocalizedStringKey
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .frame(maxWidth: .infinity, minHeight: 48)
+        }
+        .buttonStyle(.borderedProminent)
+    }
+}
+
+private struct AdministratorStationSummary: View {
+    let stations: [StationDetails]
+    let state: StationLoadingState
+
+    private var stationsNeedingAttention: Int {
+        stations.filter { AdministratorStationHealth(station: $0).needsAttention }.count
+    }
+
+    private var currentReportCount: Int {
+        stations.reduce(into: 0) { total, station in
+            total += AdministratorStationHealth(station: station).currentReportCount
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Station reporting")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+
+            switch state {
+            case .idle, .loading:
+                ProgressView("Loading station coverage…")
+            case .failed(let message):
+                Label(message, systemImage: "wifi.exclamationmark")
+                    .foregroundStyle(.secondary)
+            case .loaded:
+                AdministratorCountRow(
+                    title: "Registered stations",
+                    count: stations.count,
+                    symbol: "fuelpump"
+                )
+                AdministratorCountRow(
+                    title: "Current fuel reports",
+                    count: currentReportCount,
+                    symbol: "checkmark.circle"
+                )
+                AdministratorCountRow(
+                    title: "Stations needing attention",
+                    count: stationsNeedingAttention,
+                    symbol: "exclamationmark.triangle"
+                )
+            }
+        }
+    }
+}
+
+private enum AdministratorStationFilter: String, CaseIterable, Identifiable {
+    case all
+    case attention
+    case current
+
+    var id: Self { self }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .all: "All stations"
+        case .attention: "Needs attention"
+        case .current: "Reports current"
+        }
+    }
+}
+
+private struct AdministratorStationHealth {
+    let currentReportCount: Int
+    let staleReportCount: Int
+    let missingReportCount: Int
+
+    init(station: StationDetails) {
+        let fuels = FuelGrade.allCases.filter { $0 != .any }
+        let latest = fuels.compactMap { fuel in
+            station.reports
+                .filter { $0.fuel == fuel }
+                .max { ($0.reportedAt ?? .distantPast) < ($1.reportedAt ?? .distantPast) }
+        }
+        currentReportCount = latest.filter { !$0.isStale && $0.reportedAt != nil }.count
+        staleReportCount = latest.filter { $0.isStale || $0.reportedAt == nil }.count
+        missingReportCount = max(0, fuels.count - latest.count)
+    }
+
+    var needsAttention: Bool {
+        staleReportCount > 0 || missingReportCount > 0
+    }
+}
+
+private struct AdministratorStationsView: View {
+    let store: StationStore
+    @State private var query = ""
+    @State private var filter: AdministratorStationFilter = .all
+
+    private var filteredStations: [StationDetails] {
+        store.stations.filter { station in
+            let matchesQuery = query.isEmpty ||
+                [station.name, station.address, station.operatorName]
+                    .compactMap { $0 }
+                    .contains { $0.localizedCaseInsensitiveContains(query) }
+            let health = AdministratorStationHealth(station: station)
+            let matchesFilter = switch filter {
+            case .all: true
+            case .attention: health.needsAttention
+            case .current: !health.needsAttention
+            }
+            return matchesQuery && matchesFilter
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Station status", selection: $filter) {
+                ForEach(AdministratorStationFilter.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding()
+
+            AdministratorStationList(
+                stations: filteredStations,
+                state: store.state,
+                retry: { Task { await store.load() } }
+            )
+        }
+        .searchable(text: $query, prompt: "Station or area")
+        .refreshable { await store.load() }
+        .navigationTitle("Station coverage")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AdministratorStationList: View {
+    let stations: [StationDetails]
+    let state: StationLoadingState
+    let retry: () -> Void
+
+    var body: some View {
+        switch state {
+        case .idle, .loading:
+            ProgressView("Loading stations…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .failed(let message):
+            ContentUnavailableView {
+                Label("Stations unavailable", systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("Try again", action: retry)
+            }
+        case .loaded where stations.isEmpty:
+            ContentUnavailableView {
+                Label("No matching stations", systemImage: "fuelpump")
+            } description: {
+                Text("Change the search or station-status filter.")
+            }
+        case .loaded:
+            List(stations) { station in
+                NavigationLink {
+                    AdministratorStationReviewView(station: station)
+                } label: {
+                    AdministratorStationRow(station: station)
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+}
+
+private struct AdministratorStationRow: View {
+    let station: StationDetails
+
+    private var health: AdministratorStationHealth {
+        AdministratorStationHealth(station: station)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(station.name)
+                .font(.headline)
+            Text(station.address ?? station.operatorName ?? "Address unavailable")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Label(
+                health.needsAttention
+                    ? "\(health.staleReportCount) stale · \(health.missingReportCount) missing"
+                    : "All fuel reports current",
+                systemImage: health.needsAttention
+                    ? "exclamationmark.triangle"
+                    : "checkmark.circle"
+            )
+            .font(.caption.weight(.medium))
+            .foregroundStyle(health.needsAttention ? .orange : .green)
+        }
+        .padding(.vertical, 5)
+    }
+}
+
+private struct AdministratorStationReviewView: View {
+    let station: StationDetails
+
+    var body: some View {
+        List {
+            Section("Station") {
+                LabeledContent("Name", value: station.name)
+                LabeledContent("Operator", value: station.operatorName ?? "Unavailable")
+                LabeledContent("Address", value: station.address ?? "Unavailable")
+            }
+
+            Section("Reporting coverage") {
+                ForEach(FuelGrade.allCases.filter { $0 != .any }) { fuel in
+                    AdministratorFuelCoverageRow(
+                        fuel: fuel,
+                        report: station.reports
+                            .filter { $0.fuel == fuel }
+                            .max {
+                                ($0.reportedAt ?? .distantPast) <
+                                    ($1.reportedAt ?? .distantPast)
+                            }
+                    )
+                }
+            }
+
+            Section {
+                NavigationLink("Open full station details") {
+                    StationDetailsView(station: station)
+                }
+            }
+        }
+        .navigationTitle("Station review")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct AdministratorFuelCoverageRow: View {
+    let fuel: FuelGrade
+    let report: StationFuelReport?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(fuel.title)
+                .font(.headline)
+            if let report {
+                Label(
+                    report.isStale || report.reportedAt == nil ? "Report stale" : "Report current",
+                    systemImage: report.isStale || report.reportedAt == nil
+                        ? "clock.badge.exclamationmark"
+                        : "checkmark.circle"
+                )
+                .foregroundStyle(
+                    report.isStale || report.reportedAt == nil ? .orange : .green
+                )
+                if let date = report.reportedAt {
+                    Text(date, format: .dateTime.day().month().year().hour().minute())
+                        .foregroundStyle(.secondary)
+                }
+                if let price = report.pricePerLitre {
+                    Text(price, format: .currency(code: "LKR"))
+                } else {
+                    Text("Price missing")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Label("Report missing", systemImage: "exclamationmark.circle")
+                    .foregroundStyle(.red)
+            }
+        }
+        .font(.subheadline)
+        .padding(.vertical, 4)
     }
 }
 
@@ -323,18 +699,23 @@ private struct AdministratorUserRow: View {
 }
 
 private struct AdministratorAccountView: View {
-    let email: String?
-    let signOut: () -> Void
+    let authentication: AuthenticationSession
 
     var body: some View {
         List {
             Section("Signed in account") {
                 LabeledContent("Role", value: "Administrator")
-                LabeledContent("Email", value: email ?? "Unavailable")
+                LabeledContent("Email", value: authentication.currentAccount?.email ?? "Unavailable")
             }
 
             Section {
-                Button("Sign out", role: .destructive, action: signOut)
+                NavigationLink("Privacy and account") {
+                    AccountPrivacyView(
+                        authentication: authentication,
+                        allowsAccountDeletion: false
+                    )
+                }
+                Button("Sign out", role: .destructive, action: authentication.signOut)
             }
         }
         .navigationTitle("Administrator account")

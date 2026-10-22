@@ -2,8 +2,12 @@ import SwiftUI
 
 struct StationDetailsView: View {
     let station: StationDetails?
+    var favourites: FavouriteStationStore?
+    var userID: String?
     @Environment(\.openURL) private var openURL
     @State private var showsDirectionsError = false
+    @State private var showsCommunityReport = false
+    @State private var journeyController = FuelJourneyController()
 
     var body: some View {
         List {
@@ -23,6 +27,27 @@ struct StationDetailsView: View {
                 } else {
                     Text("Opening hours unavailable").foregroundStyle(.secondary)
                 }
+                if let phoneNumber = station?.phoneNumber,
+                   let phoneURL = URL(string: "tel:\(phoneNumber)") {
+                    Link(phoneNumber, destination: phoneURL)
+                }
+                if let sourceURL = station?.sourceURL {
+                    Link("Verified operator listing", destination: sourceURL)
+                }
+                if let station, let favourites, let userID {
+                    Button {
+                        Task {
+                            await favourites.toggle(stationID: station.id, userID: userID)
+                        }
+                    } label: {
+                        Label(
+                            favourites.isFavourite(station.id) ? "Remove from favourites" : "Save to favourites",
+                            systemImage: favourites.isFavourite(station.id) ? "heart.fill" : "heart"
+                        )
+                    }
+                    .disabled(favourites.updatingStationIDs.contains(station.id))
+                    .accessibilityIdentifier("station.favourite")
+                }
                 Button("Get directions", systemImage: "arrow.up.right") {
                     guard let url = station?.directionsURL else { return }
                     openURL(url) { accepted in
@@ -30,10 +55,32 @@ struct StationDetailsView: View {
                     }
                 }
                 .disabled(station?.directionsURL == nil)
+                if let station {
+                    Button {
+                        Task {
+                            if journeyController.isActive {
+                                await journeyController.end(stationID: station.id)
+                            } else {
+                                await journeyController.start(station: station)
+                            }
+                        }
+                    } label: {
+                        Label(
+                            journeyController.isActive ? "End fuel journey" : "Start fuel journey",
+                            systemImage: journeyController.isActive ? "stop.circle" : "location.circle"
+                        )
+                    }
+                }
                 if station?.directionsURL == nil {
                     Text("Directions require verified station coordinates.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+                if station != nil, userID != nil {
+                    Button("Report fuel status", systemImage: "person.wave.2") {
+                        showsCommunityReport = true
+                    }
+                    .accessibilityIdentifier("station.reportFuelStatus")
                 }
             }
 
@@ -82,6 +129,22 @@ struct StationDetailsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Please try again later.")
+        }
+        .sheet(isPresented: $showsCommunityReport) {
+            if let station, let userID {
+                CommunityFuelReportForm(station: station, reporterID: userID)
+            }
+        }
+        .task(id: station?.id) {
+            if let station { journeyController.refresh(stationID: station.id) }
+        }
+        .alert("Live Activity unavailable", isPresented: Binding(
+            get: { journeyController.errorMessage != nil },
+            set: { if !$0 { journeyController.clearError() } }
+        )) {
+            Button("OK", role: .cancel) { journeyController.clearError() }
+        } message: {
+            Text(journeyController.errorMessage ?? "")
         }
     }
 }

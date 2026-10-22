@@ -23,7 +23,23 @@ enum StationRecordsState {
 struct ManagerSalesHistoryView: View {
     let station: StationDetails?
     var state: StationRecordsState = .unavailable
+    var recordSale: (SaleRecordDraft) async throws -> Void = { _ in }
     @State private var fuel: FuelGrade = .any
+    @State private var showsSaleForm = false
+
+    private var todayTotal: Double? {
+        guard let station, case .loaded(let records) = state else { return nil }
+        let calendar = Calendar.current
+        return records.reduce(into: 0) { total, record in
+            guard record.stationID == station.id,
+                  record.kind == .sale,
+                  let occurredAt = record.occurredAt,
+                  calendar.isDateInToday(occurredAt),
+                  let litres = record.litres,
+                  litres.isFinite, litres > 0 else { return }
+            total += litres
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -32,15 +48,25 @@ struct ManagerSalesHistoryView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
                 Text("Sales overview").font(.title.bold())
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Daily total unavailable").font(.title3.bold())
-                    Text("A complete daily report is required to show sales totals.")
-                        .font(.subheadline)
+                    if let todayTotal {
+                        Text("\(todayTotal.formatted(.number.precision(.fractionLength(0...1)))) L")
+                            .font(.title3.bold())
+                        Text("Verified sales recorded today")
+                            .font(.subheadline)
+                    } else {
+                        Text("Daily total unavailable").font(.title3.bold())
+                        Text("A complete daily report is required to show sales totals.")
+                            .font(.subheadline)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
                 .foregroundStyle(.white)
                 .background(Color(red: 0.063, green: 0.18, blue: 0.29), in: RoundedRectangle(cornerRadius: 22))
 
+                Button("Record completed sale") { showsSaleForm = true }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(station == nil)
                 FuelGradePicker(selection: $fuel)
                 ManagerRecordsContent(stationID: station?.id, state: state, kind: .sale, fuel: fuel)
                 ViewThatFits {
@@ -73,6 +99,11 @@ struct ManagerSalesHistoryView: View {
         .navigationTitle("Sales history")
         .navigationBarTitleDisplayMode(.inline)
         .tint(Color("WelcomeAccent"))
+        .sheet(isPresented: $showsSaleForm) {
+            NavigationStack {
+                ManagerSaleRecordView(station: station, saveSale: recordSale)
+            }
+        }
     }
 }
 
@@ -80,6 +111,7 @@ struct ManagerDeliveriesView: View {
     @State private var showsReceipt = false
     let station: StationDetails?
     var state: StationRecordsState = .unavailable
+    var recordDelivery: (DeliveryReceiptDraft) async throws -> Void = { _ in }
 
     var body: some View {
         ScrollView {
@@ -102,7 +134,9 @@ struct ManagerDeliveriesView: View {
                     .buttonStyle(.borderedProminent)
                     .frame(minHeight: 44)
                     .sheet(isPresented: $showsReceipt) {
-                        NavigationStack { DeliveryReceiptView(station: station) }
+                        NavigationStack {
+                            DeliveryReceiptView(station: station, saveReceipt: recordDelivery)
+                        }
                     }
                 Text("Check the receipt and meter before recording received fuel. Receipt scanning is not available yet.")
                     .font(.footnote).foregroundStyle(.secondary)

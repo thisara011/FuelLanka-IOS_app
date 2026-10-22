@@ -2,6 +2,8 @@ import SwiftUI
 
 struct CustomerProfileView: View {
     let authentication: AuthenticationSession
+    let stationStore: StationStore
+    let favouriteStore: FavouriteStationStore
     let onFindStations: () -> Void
 
     @State private var showsEdit = false
@@ -49,15 +51,39 @@ struct CustomerProfileView: View {
                     ProfileRow(title: "Face ID and security", detail: "Biometric setup and password recovery")
                 }
                 editRow("Alert preferences", detail: alertPreferenceDescription)
+                NavigationLink {
+                    AccountPrivacyView(
+                        authentication: authentication,
+                        allowsAccountDeletion: true
+                    )
+                } label: {
+                    ProfileRow(title: "Privacy and account", detail: "Device access and account deletion")
+                }
 
                 ProfileSectionHeading("Your fuel tools")
+                if let userID = account?.id {
+                    NavigationLink {
+                        CustomerCommunityReportHistoryView(userID: userID)
+                    } label: {
+                        ProfileRow(title: "My fuel reports", detail: "Pending and reviewed observations")
+                    }
+                }
                 NavigationLink {
-                    FavouritesView(onFindStations: onFindStations)
+                    FavouritesView(
+                        allStations: stationStore.stations,
+                        store: favouriteStore,
+                        userID: account?.id ?? "",
+                        onFindStations: onFindStations
+                    )
                 } label: {
                     ProfileRow(title: "Favourite stations", detail: "Saved station availability")
                 }
                 NavigationLink {
-                    FuelComparisonView()
+                    FuelComparisonView(
+                        stations: stationStore.stations.filter {
+                            favouriteStore.stationIDs.contains($0.id)
+                        }
+                    )
                 } label: {
                     ProfileRow(title: "Fuel prices", detail: "Reported prices and comparison")
                 }
@@ -218,6 +244,8 @@ private extension View {
     NavigationStack {
         CustomerProfileView(
             authentication: AuthenticationSession(),
+            stationStore: StationStore(),
+            favouriteStore: FavouriteStationStore(),
             onFindStations: {}
         )
     }

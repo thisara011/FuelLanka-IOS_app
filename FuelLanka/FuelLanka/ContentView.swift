@@ -38,6 +38,13 @@ struct ContentView: View {
             }
         }
         .onOpenURL { url in
+            if url.scheme == "fuelsmart", url.host == "station",
+               let stationID = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "id" })?.value,
+               !stationID.isEmpty {
+                NotificationRouter.shared.route(toStationID: stationID)
+                return
+            }
             Task {
                 await authentication.handleIncomingURL(url)
             }

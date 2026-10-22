@@ -1,12 +1,16 @@
 import SwiftUI
+import VisionKit
 
 struct DeliveryReceiptView: View {
     let station: StationDetails?
+    var saveReceipt: (DeliveryReceiptDraft) async throws -> Void = { _ in }
     @Environment(\.dismiss) private var dismiss
     @State private var draft = DeliveryReceiptDraft()
     @State private var showsValidation = false
     @State private var showsReview = false
     @State private var showsDiscard = false
+    @State private var showsScanner = false
+    @State private var scanMessage: String?
     @FocusState private var fieldFocused: Bool
 
     private var report: StationFuelReport? {
@@ -26,6 +30,18 @@ struct DeliveryReceiptView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             Section("Receipt details") {
+                Button {
+                    showsScanner = true
+                } label: {
+                    Label("Scan delivery receipt", systemImage: "doc.viewfinder")
+                }
+                .disabled(station == nil || !VNDocumentCameraViewController.isSupported)
+
+                if !VNDocumentCameraViewController.isSupported {
+                    Text("Document scanning requires a supported physical iPhone or iPad. Manual entry remains available.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Picker("Fuel type", selection: $draft.fuel) {
                     Text("Select fuel").tag(FuelGrade.any)
                     ForEach(FuelGrade.allCases.filter { $0 != .any }) { fuel in
@@ -71,7 +87,7 @@ struct DeliveryReceiptView: View {
                 }
                 .disabled(station == nil)
             } footer: {
-                Text("Receipt scanning is not available yet. No delivery or inventory change is saved by this form.")
+                Text("Scanned values are suggestions. Check the receipt, meter and tank capacity before confirming.")
             }
         }
         .scrollContentBackground(.hidden)
@@ -97,7 +113,29 @@ struct DeliveryReceiptView: View {
             Button("Keep editing", role: .cancel) {}
         }
         .navigationDestination(isPresented: $showsReview) {
-            DeliveryReceiptReviewView(stationName: station?.name ?? "", draft: draft, report: report)
+            DeliveryReceiptReviewView(
+                stationName: station?.name ?? "",
+                draft: draft,
+                report: report,
+                saveReceipt: saveReceipt,
+                onSaved: { dismiss() }
+            )
+        }
+        .sheet(isPresented: $showsScanner) {
+            DeliveryReceiptScanner(
+                onResult: applyScan,
+                onCancel: {},
+                onFailure: { scanMessage = $0 }
+            )
+            .ignoresSafeArea()
+        }
+        .alert("Receipt scan", isPresented: Binding(
+            get: { scanMessage != nil },
+            set: { if !$0 { scanMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(scanMessage ?? "")
         }
         .onChange(of: station) { _, _ in
             showsReview = false
@@ -105,13 +143,28 @@ struct DeliveryReceiptView: View {
             showsValidation = false
         }
     }
+
+    private func applyScan(_ result: DeliveryReceiptScanResult) {
+        if let reference = result.reference { draft.reference = reference }
+        if let quantity = result.quantity { draft.quantity = quantity }
+        if let fuel = result.fuel { draft.fuel = fuel }
+        let populatedCount = [result.reference != nil, result.quantity != nil, result.fuel != nil]
+            .filter { $0 }.count
+        scanMessage = populatedCount == 0
+            ? "Text was recognized, but no receipt reference, fuel grade or litre quantity could be identified. Enter the values manually."
+            : "Filled \(populatedCount) receipt field\(populatedCount == 1 ? "" : "s"). Review every value before saving."
+    }
 }
 
 private struct DeliveryReceiptReviewView: View {
     let stationName: String
     let draft: DeliveryReceiptDraft
     let report: StationFuelReport?
+    let saveReceipt: (DeliveryReceiptDraft) async throws -> Void
+    let onSaved: () -> Void
     @State private var physicallyChecked = false
+    @State private var isSaving = false
+    @State private var errorMessage: String?
 
     var body: some View {
         Form {
@@ -131,13 +184,43 @@ private struct DeliveryReceiptReviewView: View {
             }
             Section {
                 Toggle("I checked the receipt and actual received quantity", isOn: $physicallyChecked)
-                Button("Confirm receipt and update stock") {}.disabled(true)
+                Button {
+                    Task { await save() }
+                } label: {
+                    if isSaving {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("Confirm receipt and update stock").frame(maxWidth: .infinity)
+                    }
+                }
+                .disabled(!physicallyChecked || isSaving)
             } footer: {
-                Text("Saving is unavailable. The service must verify the station assignment, receipt uniqueness and latest stock before one confirmed transaction.")
+                Text("The confirmed receipt is added to delivery history and the received litres are added to current stock.")
             }
         }
         .navigationTitle("Review delivery")
         .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(isSaving)
+        .alert("Delivery could not be saved", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "Try again.")
+        }
+    }
+
+    private func save() async {
+        guard physicallyChecked, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await saveReceipt(draft)
+            onSaved()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

@@ -6,10 +6,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>FuelLanka Authentication</string>
+			<string>lk.fuelsmart.station</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>fuellanka</string>
+				<string>fuelsmart</string>
 			</array>
 		</dict>
 	</array>

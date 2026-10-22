@@ -1,7 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct EditCustomerProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     let store: CustomerProfileStore
     let userID: String
@@ -11,6 +13,8 @@ struct EditCustomerProfileView: View {
     @State private var original = CustomerProfile()
     @State private var showsDiscardConfirmation = false
     @State private var showsSaveError = false
+    @State private var showsNotificationIssue = false
+    @State private var notificationResult: NotificationPermissionResult?
     @State private var didLoadDraft = false
 
     private var hasChanges: Bool {
@@ -49,7 +53,7 @@ struct EditCustomerProfileView: View {
             } header: {
                 Text("Notification preferences")
             } footer: {
-                Text("These preferences are saved to your account. Device notification permission will be requested when push alerts are connected.")
+                Text("Turning on an alert requests notification permission and registers this device for secure push alerts.")
             }
 
             Section {
@@ -98,6 +102,23 @@ struct EditCustomerProfileView: View {
                 Text("Check your connection and try again.")
             }
         }
+        .alert("Notification setup needs attention", isPresented: $showsNotificationIssue) {
+            if notificationResult == .denied,
+               let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                Button("Open Settings") {
+                    openURL(settingsURL)
+                }
+            }
+            Button("Not now", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            if notificationResult == .denied {
+                Text("Your profile was saved, but notifications are disabled for FuelSmart LK. Enable them in Settings to receive alerts.")
+            } else {
+                Text("Your profile was saved, but alerts could not be started. Check your connection and try again.")
+            }
+        }
         .task {
             guard !didLoadDraft else { return }
             didLoadDraft = true
@@ -114,7 +135,20 @@ struct EditCustomerProfileView: View {
             updatedProfile.email = email
             if await store.save(updatedProfile, userID: userID) {
                 original = updatedProfile
-                dismiss()
+                let result = await NotificationService.shared.syncPreferences(
+                    restockAlerts: updatedProfile.restockAlerts,
+                    priceAlerts: updatedProfile.priceAlerts,
+                    userID: userID
+                )
+                notificationResult = result
+                if result == .enabled {
+                    await NotificationService.shared.syncForCurrentPreferences(userID: userID)
+                }
+                if result == .denied || result == .unavailable {
+                    showsNotificationIssue = true
+                } else {
+                    dismiss()
+                }
             } else {
                 showsSaveError = true
             }

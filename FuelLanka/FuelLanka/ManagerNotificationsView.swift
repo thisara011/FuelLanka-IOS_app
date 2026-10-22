@@ -22,6 +22,9 @@ enum ManagerAlertsState {
 struct ManagerNotificationsView: View {
     let station: StationDetails?
     var state: ManagerAlertsState = .unavailable
+    var updateStock: ([StockUpdateDraft]) async throws -> Void = { _ in }
+    var publishPrices: ([FuelPriceDraft]) async throws -> Void = { _ in }
+    var recordDelivery: (DeliveryReceiptDraft) async throws -> Void = { _ in }
 
     var body: some View {
         ScrollView {
@@ -48,7 +51,13 @@ struct ManagerNotificationsView: View {
                         } else {
                             ForEach(scoped) { alert in
                                 NavigationLink {
-                                    ManagerAlertDetailsView(alert: alert, station: station)
+                                    ManagerAlertDetailsView(
+                                        alert: alert,
+                                        station: station,
+                                        updateStock: updateStock,
+                                        publishPrices: publishPrices,
+                                        recordDelivery: recordDelivery
+                                    )
                                 } label: {
                                     VStack(alignment: .leading, spacing: 10) {
                                         Text(alert.title).font(.headline)
@@ -94,6 +103,9 @@ struct ManagerNotificationsView: View {
 private struct ManagerAlertDetailsView: View {
     let alert: ManagerAlert
     let station: StationDetails
+    let updateStock: ([StockUpdateDraft]) async throws -> Void
+    let publishPrices: ([FuelPriceDraft]) async throws -> Void
+    let recordDelivery: (DeliveryReceiptDraft) async throws -> Void
 
     var body: some View {
         List {
@@ -108,11 +120,17 @@ private struct ManagerAlertDetailsView: View {
             Section {
                 switch alert.destination {
                 case .stock:
-                    NavigationLink("Review stock") { ManagerStockUpdateView(station: station) }
+                    NavigationLink("Review stock") {
+                        ManagerStockUpdateView(station: station, saveChanges: updateStock)
+                    }
                 case .deliveries:
-                    NavigationLink("Review deliveries") { ManagerDeliveriesView(station: station) }
+                    NavigationLink("Review deliveries") {
+                        ManagerDeliveriesView(station: station, recordDelivery: recordDelivery)
+                    }
                 case .prices:
-                    NavigationLink("Review fuel prices") { ManagerFuelPricesView(station: station) }
+                    NavigationLink("Review fuel prices") {
+                        ManagerFuelPricesView(station: station, publishChanges: publishPrices)
+                    }
                 case .station:
                     NavigationLink("Station details") { StationDetailsView(station: station) }
                 case .forecast:

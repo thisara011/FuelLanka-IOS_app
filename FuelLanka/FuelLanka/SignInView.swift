@@ -29,6 +29,10 @@ struct SignInView: View {
                     onPasswordSignIn: submit,
                     onBiometricSignIn: signInWithBiometrics
                 )
+                FederatedSignInSection(
+                    authentication: authentication,
+                    onFailure: { showsAuthenticationIssue = true }
+                )
             }
             .padding(.horizontal, 28)
             .padding(.top, 44)

@@ -5,11 +5,15 @@ final class ResetPasswordUITests: XCTestCase {
     @MainActor
     func testRecoveryValidationAndMissingFirebaseConfiguration() {
         let app = XCUIApplication()
+        app.launchArguments.append("--ui-testing")
         app.launch()
-        let start = app.buttons["welcome.getStarted"]
-        XCTAssertTrue(start.waitForExistence(timeout: 5))
-        start.tap()
+        let signIn = app.buttons["welcome.returningCustomer"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+        signIn.tap()
         let forgot = app.buttons["signIn.forgotPassword"]
+        if !forgot.waitForExistence(timeout: 2) {
+            app.buttons["welcome.getStarted"].tap()
+        }
         XCTAssertTrue(forgot.waitForExistence(timeout: 5))
         if !forgot.isHittable { app.swipeUp() }
         forgot.tap()

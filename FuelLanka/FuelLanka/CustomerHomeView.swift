@@ -2,6 +2,8 @@ import SwiftUI
 
 struct CustomerHomeView: View {
     let stationStore: StationStore
+    let favouriteStore: FavouriteStationStore
+    let userID: String
     let onFindStations: () -> Void
     let onViewOutlook: () -> Void
 
@@ -16,7 +18,12 @@ struct CustomerHomeView: View {
                     state: stationStore.state
                 )
                 NavigationLink {
-                    FavouritesView(onFindStations: onFindStations)
+                    FavouritesView(
+                        allStations: stationStore.stations,
+                        store: favouriteStore,
+                        userID: userID,
+                        onFindStations: onFindStations
+                    )
                 } label: {
                     Label("Favourite stations", systemImage: "heart")
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -26,6 +33,8 @@ struct CustomerHomeView: View {
                 StationAvailabilitySection(
                     stations: stationStore.stations,
                     state: stationStore.state,
+                    favouriteStore: favouriteStore,
+                    userID: userID,
                     onSeeAll: onFindStations,
                     onRetry: reload
                 )
@@ -163,6 +172,8 @@ private struct FuelNetworkSummary: View {
 private struct StationAvailabilitySection: View {
     let stations: [StationDetails]
     let state: StationLoadingState
+    let favouriteStore: FavouriteStationStore
+    let userID: String
     let onSeeAll: () -> Void
     let onRetry: () -> Void
 
@@ -194,7 +205,11 @@ private struct StationAvailabilitySection: View {
             case .loaded:
                 ForEach(stations.prefix(3)) { station in
                     NavigationLink {
-                        StationDetailsView(station: station)
+                        StationDetailsView(
+                            station: station,
+                            favourites: favouriteStore,
+                            userID: userID
+                        )
                     } label: {
                         HomeStationCard(station: station)
                     }
@@ -311,6 +326,8 @@ private extension View {
     NavigationStack {
         CustomerHomeView(
             stationStore: StationStore(),
+            favouriteStore: FavouriteStationStore(),
+            userID: "preview",
             onFindStations: {},
             onViewOutlook: {}
         )

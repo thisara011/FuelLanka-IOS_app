@@ -29,7 +29,7 @@ struct StockUpdateDraft: Identifiable {
     }
 
     static func rows(for station: StationDetails?) -> [Self] {
-        FuelGrade.allCases.filter { $0 != .any }.map { fuel in
+        [FuelGrade.petrol92, .petrol95, .diesel, .superDiesel].map { fuel in
             let report = station?.reports.filter { $0.fuel == fuel }.max {
                 ($0.reportedAt ?? .distantPast) < ($1.reportedAt ?? .distantPast)
             }

@@ -10,6 +10,13 @@ struct CustomerWorkspaceView: View {
     let authentication: AuthenticationSession
     @State private var selectedTab: CustomerTab = .home
     @State private var stationStore = StationStore()
+    @State private var favouriteStore = FavouriteStationStore()
+    @State private var notificationRouter = NotificationRouter.shared
+    @State private var findPath: [StationDetails] = []
+
+    private var userID: String {
+        authentication.currentAccount?.id ?? ""
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -17,38 +24,79 @@ struct CustomerWorkspaceView: View {
                 NavigationStack {
                     CustomerHomeView(
                         stationStore: stationStore,
+                        favouriteStore: favouriteStore,
+                        userID: userID,
                         onFindStations: { selectedTab = .find },
                         onViewOutlook: { selectedTab = .predict }
                     )
                 }
             }
             Tab("Find", systemImage: "magnifyingglass", value: .find) {
-                NavigationStack {
-                    FindFuelView()
+                NavigationStack(path: $findPath) {
+                    FindFuelView(
+                        stationStore: stationStore,
+                        favouriteStore: favouriteStore,
+                        userID: userID
+                    )
                 }
             }
             Tab("Map", systemImage: "map", value: .map) {
                 NavigationStack {
-                    StationMapView(onListView: { selectedTab = .find })
+                    StationMapView(
+                        stations: stationStore.state == .loaded ? stationStore.stations : nil,
+                        favourites: favouriteStore,
+                        userID: userID,
+                        onListView: { selectedTab = .find }
+                    )
                 }
             }
             Tab("Predict", systemImage: "chart.line.uptrend.xyaxis", value: .predict) {
-                CustomerPendingDestination(
-                    title: "Predictions",
-                    symbol: "chart.line.uptrend.xyaxis",
-                    message: "Forecasts are unavailable. Reliable estimates require recent station reports and a validated model."
-                )
+                NavigationStack {
+                    CustomerPredictionView(stationStore: stationStore)
+                }
             }
             Tab("Profile", systemImage: "person", value: .profile) {
                 NavigationStack {
                     CustomerProfileView(
                         authentication: authentication,
+                        stationStore: stationStore,
+                        favouriteStore: favouriteStore,
                         onFindStations: { selectedTab = .find }
                     )
                 }
             }
         }
         .tint(Color("WelcomeAccent"))
+        .overlay {
+            WidgetSnapshotSynchronizer(
+                stations: stationStore.stations,
+                favouriteIDs: favouriteStore.stationIDs
+            )
+        }
+        .task(id: userID) {
+            guard !userID.isEmpty else { return }
+            async let stations: Void = stationStore.load()
+            async let favourites: Void = favouriteStore.load(userID: userID)
+            _ = await (stations, favourites)
+            await NotificationService.shared.syncForCurrentPreferences(
+                userID: userID,
+                stations: stationStore.stations
+            )
+            openPendingNotification()
+        }
+        .onChange(of: notificationRouter.pendingRoute) {
+            openPendingNotification()
+        }
+    }
+
+    private func openPendingNotification() {
+        guard let route = notificationRouter.pendingRoute,
+              let station = stationStore.stations.first(where: { $0.id == route.stationID }) else {
+            return
+        }
+        selectedTab = .find
+        findPath = [station]
+        notificationRouter.consume()
     }
 }
 

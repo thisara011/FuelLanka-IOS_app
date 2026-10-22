@@ -75,6 +75,25 @@ struct AuthenticationSessionTests {
         )
     }
 
+    @Test func passwordlessAppleAccountMustCreatePasswordBeforeWorkspace() async {
+        let account = AuthenticatedAccount(
+            id: "apple-user",
+            email: "apple@example.com",
+            role: .customer,
+            hasPassword: false
+        )
+        let session = AuthenticationSession(service: FakeAuthenticationService(account: account))
+
+        let succeeded = await session.signInWithApple(
+            idToken: "token",
+            rawNonce: "nonce",
+            fullName: nil
+        )
+
+        #expect(succeeded)
+        #expect(session.status == .passwordSetup(account))
+    }
+
     @Test func missingConfigurationReturnsToSignedOutState() async {
         let session = AuthenticationSession(
             service: FakeAuthenticationService(failure: .configurationMissing)
@@ -128,22 +147,63 @@ struct AuthenticationSessionTests {
         #expect(session.status == .signedOut)
         #expect(service.resetRequests == ["user@example.com"])
     }
+
+    @Test func deletingAccountSignsOutAndForwardsPassword() async {
+        let account = AuthenticatedAccount(
+            id: "delete-user",
+            email: "delete@example.com",
+            role: .customer,
+            hasPassword: true
+        )
+        let service = FakeAuthenticationService(account: account)
+        let session = AuthenticationSession(service: service)
+        await session.restore()
+
+        let succeeded = await session.deleteAccount(password: "confirmed-password")
+
+        #expect(succeeded)
+        #expect(session.status == .signedOut)
+        #expect(session.issue == nil)
+        #expect(service.deletionPasswords == ["confirmed-password"])
+    }
+
+    @Test func failedAccountDeletionKeepsTheAuthenticatedSession() async {
+        let account = AuthenticatedAccount(
+            id: "retained-user",
+            email: "retained@example.com",
+            role: .customer,
+            hasPassword: true
+        )
+        let service = FakeAuthenticationService(account: account, deletionFailure: .invalidCredentials)
+        let session = AuthenticationSession(service: service)
+        await session.restore()
+
+        let succeeded = await session.deleteAccount(password: "incorrect-password")
+
+        #expect(!succeeded)
+        #expect(session.status == .authenticated(account))
+        #expect(session.issue == .invalidCredentials)
+    }
 }
 
 @MainActor
 private final class FakeAuthenticationService: AuthenticationService {
     private let account: AuthenticatedAccount?
     private let failure: AuthenticationIssue?
+    private let deletionFailure: AuthenticationIssue?
     private(set) var resetRequests: [String] = []
     private(set) var registrationLinkRequests: [String] = []
+    private(set) var deletionPasswords: [String?] = []
 
-    init(account: AuthenticatedAccount?) {
+    init(account: AuthenticatedAccount?, deletionFailure: AuthenticationIssue? = nil) {
         self.account = account
+        self.deletionFailure = deletionFailure
         failure = nil
     }
 
     init(failure: AuthenticationIssue) {
         account = nil
+        deletionFailure = nil
         self.failure = failure
     }
 
@@ -154,6 +214,17 @@ private final class FakeAuthenticationService: AuthenticationService {
     func signIn(email: String, password: String) async throws -> AuthenticatedAccount {
         guard let account = try result() else {
             throw AuthenticationIssue.invalidCredentials
+        }
+        return account
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async throws -> AuthenticatedAccount {
+        guard let account = try result() else {
+            throw AuthenticationIssue.roleNotAssigned
         }
         return account
     }
@@ -190,6 +261,13 @@ private final class FakeAuthenticationService: AuthenticationService {
             throw failure
         }
         resetRequests.append(email)
+    }
+
+    func deleteCurrentAccount(password: String?) async throws {
+        deletionPasswords.append(password)
+        if let deletionFailure {
+            throw deletionFailure
+        }
     }
 
     func signOut() throws {}

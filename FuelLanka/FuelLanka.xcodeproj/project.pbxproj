@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DF44B07A3087C30000C3683B /* SaleRecordDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF44B0793087C30000C3683B /* SaleRecordDraft.swift */; };
+		DF44B07C3087C39100C3683B /* ManagerSaleRecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF44B07B3087C39100C3683B /* ManagerSaleRecordView.swift */; };
+		DF44B07E30888D6200C3683B /* FavouriteStationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF44B07D30888D6200C3683B /* FavouriteStationStore.swift */; };
+		DF44B08030889F9200C3683B /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF44B07F30889F9200C3683B /* NotificationService.swift */; };
+		DF44B09D3089CB2200C3683B /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF44B09C3089CB2200C3683B /* WidgetKit.framework */; };
+		DF44B09F3089CB2200C3683B /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DF44B09E3089CB2200C3683B /* SwiftUI.framework */; };
+		DF44B0AA3089CB2400C3683B /* FuelLankaWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DF44B09B3089CB2200C3683B /* FuelLankaWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DFBC7BCA3087199A004FE049 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DFBC7BC93087199A004FE049 /* FirebaseAuth */; };
 		DFBC7BCC308719A6004FE049 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = DFBC7BCB308719A6004FE049 /* FirebaseFirestore */; };
 		DFBC7BD130873952004FE049 /* BiometricCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBC7BD030873952004FE049 /* BiometricCredentialStore.swift */; };
@@ -14,6 +21,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		DF44B0A83089CB2400C3683B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DFAC60B130834AAC0036BB38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF44B09A3089CB2200C3683B;
+			remoteInfo = FuelLankaWidgetsExtension;
+		};
 		DFAC60C930834AAD0036BB38 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DFAC60B130834AAC0036BB38 /* Project object */;
@@ -30,7 +44,29 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		DF44B0AF3089CB2400C3683B /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DF44B0AA3089CB2400C3683B /* FuelLankaWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		DF44B0793087C30000C3683B /* SaleRecordDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaleRecordDraft.swift; sourceTree = "<group>"; };
+		DF44B07B3087C39100C3683B /* ManagerSaleRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagerSaleRecordView.swift; sourceTree = "<group>"; };
+		DF44B07D30888D6200C3683B /* FavouriteStationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavouriteStationStore.swift; sourceTree = "<group>"; };
+		DF44B07F30889F9200C3683B /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		DF44B09B3089CB2200C3683B /* FuelLankaWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FuelLankaWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF44B09C3089CB2200C3683B /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = /System/Library/Frameworks/WidgetKit.framework; sourceTree = "<absolute>"; };
+		DF44B09E3089CB2200C3683B /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = /System/Library/Frameworks/SwiftUI.framework; sourceTree = "<absolute>"; };
+		DF44B0B03089CBD600C3683B /* FuelLankaWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FuelLankaWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		DFAC60B930834AAC0036BB38 /* FuelLanka.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FuelLanka.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DFAC60C830834AAD0036BB38 /* FuelLankaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FuelLankaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DFAC60D230834AAD0036BB38 /* FuelLankaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FuelLankaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -39,6 +75,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DF44B0AE3089CB2400C3683B /* Exceptions for "FuelLankaWidgets" folder in "FuelLankaWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DF44B09A3089CB2200C3683B /* FuelLankaWidgetsExtension */;
+		};
 		DFBC7BCF30873654004FE049 /* Exceptions for "FuelLanka" folder in "FuelLanka" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -49,6 +92,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		DF44B0A03089CB2200C3683B /* FuelLankaWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DF44B0AE3089CB2400C3683B /* Exceptions for "FuelLankaWidgets" folder in "FuelLankaWidgetsExtension" target */,
+			);
+			path = FuelLankaWidgets;
+			sourceTree = "<group>";
+		};
 		DFAC60BB30834AAC0036BB38 /* FuelLanka */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -70,6 +121,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		DF44B0983089CB2200C3683B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF44B09F3089CB2200C3683B /* SwiftUI.framework in Frameworks */,
+				DF44B09D3089CB2200C3683B /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DFAC60B630834AAC0036BB38 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -99,12 +159,18 @@
 		DFAC60B030834AAC0036BB38 = {
 			isa = PBXGroup;
 			children = (
+				DF44B0B03089CBD600C3683B /* FuelLankaWidgetsExtension.entitlements */,
 				DFAC60BB30834AAC0036BB38 /* FuelLanka */,
 				DFAC60CB30834AAD0036BB38 /* FuelLankaTests */,
 				DFAC60D530834AAD0036BB38 /* FuelLankaUITests */,
+				DF44B0A03089CB2200C3683B /* FuelLankaWidgets */,
 				DFBC7BC83087199A004FE049 /* Frameworks */,
 				DFBC7BD030873952004FE049 /* BiometricCredentialStore.swift */,
 				DFBC7BD230873ABA004FE049 /* InitialPasswordSetupView.swift */,
+				DF44B0793087C30000C3683B /* SaleRecordDraft.swift */,
+				DF44B07B3087C39100C3683B /* ManagerSaleRecordView.swift */,
+				DF44B07D30888D6200C3683B /* FavouriteStationStore.swift */,
+				DF44B07F30889F9200C3683B /* NotificationService.swift */,
 				DFAC60BA30834AAC0036BB38 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -115,6 +181,7 @@
 				DFAC60B930834AAC0036BB38 /* FuelLanka.app */,
 				DFAC60C830834AAD0036BB38 /* FuelLankaTests.xctest */,
 				DFAC60D230834AAD0036BB38 /* FuelLankaUITests.xctest */,
+				DF44B09B3089CB2200C3683B /* FuelLankaWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -122,6 +189,8 @@
 		DFBC7BC83087199A004FE049 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DF44B09C3089CB2200C3683B /* WidgetKit.framework */,
+				DF44B09E3089CB2200C3683B /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -129,6 +198,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		DF44B09A3089CB2200C3683B /* FuelLankaWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF44B0AB3089CB2400C3683B /* Build configuration list for PBXNativeTarget "FuelLankaWidgetsExtension" */;
+			buildPhases = (
+				DF44B0973089CB2200C3683B /* Sources */,
+				DF44B0983089CB2200C3683B /* Frameworks */,
+				DF44B0993089CB2200C3683B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				DF44B0A03089CB2200C3683B /* FuelLankaWidgets */,
+			);
+			name = FuelLankaWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = FuelLankaWidgetsExtension;
+			productReference = DF44B09B3089CB2200C3683B /* FuelLankaWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		DFAC60B830834AAC0036BB38 /* FuelLanka */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DFAC60DC30834AAD0036BB38 /* Build configuration list for PBXNativeTarget "FuelLanka" */;
@@ -136,10 +227,12 @@
 				DFAC60B530834AAC0036BB38 /* Sources */,
 				DFAC60B630834AAC0036BB38 /* Frameworks */,
 				DFAC60B730834AAC0036BB38 /* Resources */,
+				DF44B0AF3089CB2400C3683B /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DF44B0A93089CB2400C3683B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				DFAC60BB30834AAC0036BB38 /* FuelLanka */,
@@ -206,9 +299,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2650;
+				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					DF44B09A3089CB2200C3683B = {
+						CreatedOnToolsVersion = 27.1;
+					};
 					DFAC60B830834AAC0036BB38 = {
 						CreatedOnToolsVersion = 26.5;
 					};
@@ -242,11 +338,19 @@
 				DFAC60B830834AAC0036BB38 /* FuelLanka */,
 				DFAC60C730834AAD0036BB38 /* FuelLankaTests */,
 				DFAC60D130834AAD0036BB38 /* FuelLankaUITests */,
+				DF44B09A3089CB2200C3683B /* FuelLankaWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		DF44B0993089CB2200C3683B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DFAC60B730834AAC0036BB38 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -271,11 +375,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		DF44B0973089CB2200C3683B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DFAC60B530834AAC0036BB38 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				DFBC7BD130873952004FE049 /* BiometricCredentialStore.swift in Sources */,
+				DF44B08030889F9200C3683B /* NotificationService.swift in Sources */,
+				DF44B07A3087C30000C3683B /* SaleRecordDraft.swift in Sources */,
+				DF44B07C3087C39100C3683B /* ManagerSaleRecordView.swift in Sources */,
+				DF44B07E30888D6200C3683B /* FavouriteStationStore.swift in Sources */,
 				DFBC7BD330873ABA004FE049 /* InitialPasswordSetupView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -297,6 +412,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		DF44B0A93089CB2400C3683B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF44B09A3089CB2200C3683B /* FuelLankaWidgetsExtension */;
+			targetProxy = DF44B0A83089CB2400C3683B /* PBXContainerItemProxy */;
+		};
 		DFAC60CA30834AAD0036BB38 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DFAC60B830834AAC0036BB38 /* FuelLanka */;
@@ -310,6 +430,92 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		DF44B0AC3089CB2400C3683B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = FuelLankaWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XU3V275AK2;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FuelLankaWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FuelLankaWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = thisara.FuelLanka.FuelLankaWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		DF44B0AD3089CB2400C3683B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = FuelLankaWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XU3V275AK2;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FuelLankaWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FuelLankaWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = thisara.FuelLanka.FuelLankaWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
 		DFAC60DA30834AAD0036BB38 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -441,8 +647,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FuelLanka/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "FuelSmart LK uses the camera to scan delivery receipts for manager review.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely sign in to your FuelSmart LK account.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FuelSmart LK uses your location when requested to center the map and help you find nearby fuel stations.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -455,6 +663,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = thisara.FuelLanka;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -477,8 +686,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FuelLanka/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "FuelSmart LK uses the camera to scan delivery receipts for manager review.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to securely sign in to your FuelSmart LK account.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FuelSmart LK uses your location when requested to center the map and help you find nearby fuel stations.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -491,6 +702,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = thisara.FuelLanka;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -584,6 +796,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		DF44B0AB3089CB2400C3683B /* Build configuration list for PBXNativeTarget "FuelLankaWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF44B0AC3089CB2400C3683B /* Debug */,
+				DF44B0AD3089CB2400C3683B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		DFAC60B430834AAC0036BB38 /* Build configuration list for PBXProject "FuelLanka" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

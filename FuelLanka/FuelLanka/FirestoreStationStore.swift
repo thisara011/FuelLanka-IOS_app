@@ -39,9 +39,9 @@ final class StationStore {
     }
 
     #if canImport(FirebaseFirestore)
-    private static func station(from document: QueryDocumentSnapshot) -> StationDetails? {
-        let data = document.data()
-        guard let name = nonemptyString(data["name"]) else { return nil }
+    static func station(from document: DocumentSnapshot) -> StationDetails? {
+        guard let data = document.data(),
+              let name = nonemptyString(data["name"]) else { return nil }
 
         return StationDetails(
             id: document.documentID,
@@ -49,6 +49,8 @@ final class StationStore {
             address: nonemptyString(data["address"]),
             operatorName: nonemptyString(data["operatorName"]),
             openingHours: nonemptyString(data["openingHours"]),
+            phoneNumber: nonemptyString(data["phoneNumber"]),
+            sourceURL: nonemptyString(data["sourceURL"]).flatMap(URL.init(string:)),
             latitude: number(data["latitude"]),
             longitude: number(data["longitude"]),
             reports: reports(from: data["reports"])
@@ -64,6 +66,8 @@ final class StationStore {
                   fuel != .any else { return nil }
 
             let timestamp = data["reportedAt"] as? Timestamp
+            let reportedAt = timestamp?.dateValue()
+            let expired = CommunityReportPolicy.isPublicReportExpired(reportedAt)
             return StationFuelReport(
                 id: nonemptyString(data["id"]) ?? UUID().uuidString,
                 fuel: fuel,
@@ -71,9 +75,9 @@ final class StationStore {
                 stockLitres: number(data["stockLitres"]),
                 capacityLitres: number(data["capacityLitres"]),
                 pricePerLitre: number(data["pricePerLitre"]).map { Decimal($0) },
-                reportedAt: timestamp?.dateValue(),
+                reportedAt: reportedAt,
                 source: nonemptyString(data["source"]),
-                isStale: data["isStale"] as? Bool ?? true
+                isStale: (data["isStale"] as? Bool ?? true) || expired
             )
         }
     }

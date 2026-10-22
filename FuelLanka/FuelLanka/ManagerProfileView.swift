@@ -11,8 +11,13 @@ struct ManagerProfileView: View {
     let authentication: AuthenticationSession
     let station: StationDetails?
     var profile: ManagerProfile? = nil
+    var alerts: [ManagerAlert] = []
+    var records: [StationTransaction] = []
+    var updateStock: ([StockUpdateDraft]) async throws -> Void = { _ in }
+    var publishPrices: ([FuelPriceDraft]) async throws -> Void = { _ in }
+    var recordDelivery: (DeliveryReceiptDraft) async throws -> Void = { _ in }
+    var saveProfile: (String, String) async throws -> Void = { _, _ in }
     @State private var showsEditNotice = false
-    @State private var showsSignOutNotice = false
 
     var body: some View {
         ScrollView {
@@ -77,14 +82,33 @@ struct ManagerProfileView: View {
                 }
                 .buttonStyle(.bordered)
                 NavigationLink {
-                    ManagerNotificationsView(station: station)
+                    AccountPrivacyView(
+                        authentication: authentication,
+                        allowsAccountDeletion: true
+                    )
+                } label: {
+                    Label("Privacy and account", systemImage: "hand.raised")
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                NavigationLink {
+                    ManagerNotificationsView(
+                        station: station,
+                        state: .loaded(alerts),
+                        updateStock: updateStock,
+                        publishPrices: publishPrices,
+                        recordDelivery: recordDelivery
+                    )
                 } label: {
                     Label("Operational notifications", systemImage: "bell")
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
                 .buttonStyle(.bordered)
                 NavigationLink {
-                    ManagerAnalyticsView(station: station)
+                    ManagerAnalyticsView(
+                        station: station,
+                        state: .loaded(records)
+                    )
                 } label: {
                     Label("Station analytics", systemImage: "chart.bar")
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -104,13 +128,12 @@ struct ManagerProfileView: View {
         .tint(Color("WelcomeAccent"))
         .sheet(isPresented: $showsEditNotice) {
             NavigationStack {
-                EditManagerProfileView(profile: profile, station: station)
+                EditManagerProfileView(
+                    profile: profile,
+                    station: station,
+                    saveProfile: saveProfile
+                )
             }
-        }
-        .alert("Account service unavailable", isPresented: $showsSignOutNotice) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Session management is not connected yet. No account session has been changed.")
         }
     }
 }

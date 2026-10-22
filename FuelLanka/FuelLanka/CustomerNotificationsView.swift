@@ -1,23 +1,29 @@
 import SwiftUI
 
 /// Account-scoped alerts supplied by the notification service.
-struct CustomerNotification: Identifiable {
+struct CustomerNotification: Identifiable, Equatable {
     let id: String
+    let stationID: String
     let title: String
     let message: String
     let receivedAt: Date?
     let station: StationDetails?
 }
 
-enum NotificationInboxState {
+enum NotificationInboxState: Equatable {
     case loading
     case unavailable
     case loaded([CustomerNotification])
 }
 
 struct CustomerNotificationsView: View {
-    var state: NotificationInboxState = .unavailable
+    private let previewState: NotificationInboxState?
+    @State private var notificationService = NotificationService.shared
     @State private var showsPreferences = false
+
+    init(state: NotificationInboxState? = nil) {
+        previewState = state
+    }
 
     var body: some View {
         ScrollView {
@@ -25,7 +31,7 @@ struct CustomerNotificationsView: View {
                 Text("Recent alerts")
                     .font(.title3.bold())
                     .accessibilityAddTraits(.isHeader)
-                switch state {
+                switch previewState ?? notificationService.inboxState {
                 case .loading:
                     ProgressView("Loading alerts…")
                         .frame(maxWidth: .infinity, minHeight: 120)
