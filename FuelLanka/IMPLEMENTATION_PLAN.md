@@ -58,6 +58,10 @@ Before integration, inspect existing configuration and obtain the actual Firebas
 3. Vision/VisionKit: scan delivery receipts, review prefilled fields and confirm once; retain manual entry.
 4. ActivityKit: time-limited fuel journey, completion/expiry handling and supported-device presentation.
 
+### Core ML local inference increment
+
+The customer fuel outlook now bundles `FuelDemandRegressor.mlmodel` and performs Core ML inference entirely on the device. Runtime inputs are derived locally from confirmed station sales: recent three-day demand, recent seven-day demand, the preceding seven-day baseline, demand trend and weekend context. The prediction is bounded against observed demand, remains blocked for stale/insufficient stock inputs, and falls back to the existing transparent local baseline if the model or sufficient history is unavailable. The UI identifies the active engine as `On-device Core ML` or `Local baseline`; no station prediction features are sent to a cloud inference service. Xcode compiled the model successfully and focused model/baseline prediction tests passed.
+
 ## Validation gates
 
 - Firebase Emulator Suite: customers cannot write station reports; managers cannot write other stations; administrative operations require authorized roles.

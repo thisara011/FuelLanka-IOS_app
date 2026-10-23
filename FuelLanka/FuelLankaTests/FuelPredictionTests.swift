@@ -67,6 +67,27 @@ struct FuelPredictionTests {
         #expect(result.estimatedDaysRemaining == 7)
         #expect(result.saleCount == 8)
         #expect(result.dailyUsage.count == 8)
+        #expect(result.engine == .baseline)
+    }
+
+    @Test func bundledCoreMLModelPredictsLocally() {
+        let calendar = Calendar(identifier: .gregorian)
+        let sales = (1...14).map {
+            transaction(id: "model-sale-\($0)", daysAgo: Double($0), litres: 100 + Double($0))
+        }
+
+        let result = FuelPredictionCalculator.calculate(
+            station: station(stock: 2_000),
+            fuel: .petrol92,
+            sales: sales,
+            demandPredictor: OnDeviceFuelDemandPredictor(),
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(result.engine == .coreML)
+        #expect(result.averageDailyUsage != nil)
+        #expect(result.estimatedDaysRemaining != nil)
     }
 
     @Test func ignoresDeliveriesAndUnconfirmedSales() {

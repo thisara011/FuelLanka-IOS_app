@@ -23,6 +23,7 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
     case configurationMissing
     case invalidCredentials
     case emailAlreadyInUse
+    case emailNotVerified
     case weakPassword
     case networkUnavailable
     case emailQuotaExceeded
@@ -44,6 +45,7 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
         case .configurationMissing: "Firebase not configured"
         case .invalidCredentials: "Unable to sign in"
         case .emailAlreadyInUse: "Email already registered"
+        case .emailNotVerified: "Verify your email"
         case .weakPassword: "Password not accepted"
         case .networkUnavailable: "Network unavailable"
         case .emailQuotaExceeded: "Daily email limit reached"
@@ -70,6 +72,8 @@ enum AuthenticationIssue: Error, Equatable, Sendable {
             "The email or password was not accepted. Check your details and try again."
         case .emailAlreadyInUse:
             "An account already uses this email address. Sign in or reset its password."
+        case .emailNotVerified:
+            "Open the verification email we sent you, verify your address, then sign in."
         case .weakPassword:
             "Firebase rejected this password. Choose a stronger password and try again."
         case .networkUnavailable:
@@ -146,6 +150,10 @@ struct FirebaseAuthenticationService: AuthenticationService {
             throw AuthenticationIssue.configurationMissing
         }
         guard let user = Auth.auth().currentUser else { return nil }
+        guard user.isEmailVerified else {
+            try? Auth.auth().signOut()
+            return nil
+        }
         return try await account(for: user, mayCreateCustomerRecord: false)
         #else
         throw AuthenticationIssue.configurationMissing
@@ -160,6 +168,11 @@ struct FirebaseAuthenticationService: AuthenticationService {
         do {
             let normalizedEmail = normalized(email)
             let result = try await Auth.auth().signIn(withEmail: normalizedEmail, password: password)
+            guard result.user.isEmailVerified else {
+                try? await result.user.sendEmailVerification()
+                try? Auth.auth().signOut()
+                throw AuthenticationIssue.emailNotVerified
+            }
             return try await authorizedAccount(
                 for: result.user,
                 mayCreateCustomerRecord: false
@@ -188,9 +201,16 @@ struct FirebaseAuthenticationService: AuthenticationService {
                 fullName: fullName
             )
             let result = try await Auth.auth().signIn(with: credential)
-            return try await authorizedAccount(
+            let account = try await authorizedAccount(
                 for: result.user,
                 mayCreateCustomerRecord: result.additionalUserInfo?.isNewUser == true
+            )
+            try await setPasswordConfigured(false, for: result.user)
+            return AuthenticatedAccount(
+                id: account.id,
+                email: account.email,
+                role: account.role,
+                hasPassword: false
             )
         } catch {
             throw map(error)
@@ -207,7 +227,11 @@ struct FirebaseAuthenticationService: AuthenticationService {
         }
         do {
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            return try await authorizedAccount(for: result.user, mayCreateCustomerRecord: true)
+            let account = try await authorizedAccount(for: result.user, mayCreateCustomerRecord: true)
+            try await setPasswordConfigured(true, for: result.user)
+            try await result.user.sendEmailVerification()
+            try Auth.auth().signOut()
+            return account
         } catch {
             throw map(error)
         }
@@ -280,6 +304,7 @@ struct FirebaseAuthenticationService: AuthenticationService {
         }
         do {
             try await user.updatePassword(to: password)
+            try await setPasswordConfigured(true, for: user)
         } catch {
             throw map(error)
         }
@@ -403,7 +428,13 @@ struct FirebaseAuthenticationService: AuthenticationService {
                 try await ensureCustomerRecord(for: user)
             }
 
-            let hasPassword = user.providerData.contains { $0.providerID == "password" }
+            let profile = try await Firestore.firestore()
+                .collection("users")
+                .document(user.uid)
+                .getDocument()
+                .data()
+            let hasPassword = profile?["passwordConfigured"] as? Bool
+                ?? user.providerData.contains { $0.providerID == "password" }
             return AuthenticatedAccount(
                 id: user.uid,
                 email: user.email,
@@ -455,6 +486,13 @@ struct FirebaseAuthenticationService: AuthenticationService {
 
     private func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func setPasswordConfigured(_ isConfigured: Bool, for user: User) async throws {
+        try await Firestore.firestore()
+            .collection("users")
+            .document(user.uid)
+            .setData(["passwordConfigured": isConfigured], merge: true)
     }
 
     private func ensureCustomerRecord(for user: User) async throws {
@@ -597,7 +635,8 @@ final class AuthenticationSession {
         var succeeded = false
         await perform {
             let account = try await service.registerCustomer(email: email, password: password)
-            transition(to: account)
+            _ = account
+            status = .signedOut
             succeeded = true
         }
         return succeeded

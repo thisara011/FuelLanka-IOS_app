@@ -4,6 +4,8 @@ struct CreateAccountView: View {
     let authentication: AuthenticationSession
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
+    @State private var password = ""
+    @State private var confirmation = ""
     @State private var hasSubmitted = false
     @State private var linkSent = false
     @State private var showsAuthenticationIssue = false
@@ -17,7 +19,7 @@ struct CreateAccountView: View {
                     .foregroundStyle(Color("WelcomeHeading"))
                     .accessibilityAddTraits(.isHeader)
 
-                Text("We only need your email to confirm you are a real user. You can complete your profile after signing in.")
+                Text("Enter your email and create a password. You must verify your email before signing in.")
                     .font(.subheadline)
                     .foregroundStyle(Color("WelcomeSecondary"))
             }
@@ -94,30 +96,48 @@ struct CreateAccountView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.go)
                     .focused($emailIsFocused)
-                    .onSubmit(sendVerificationLink)
+                    .onSubmit(createAccount)
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("registration.email")
+
+                SecureField("Create password", text: $password)
+                    .textContentType(.newPassword)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("registration.password")
+
+                SecureField("Confirm password", text: $confirmation)
+                    .textContentType(.newPassword)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("registration.passwordConfirmation")
 
                 if hasSubmitted && !isValidEmail {
                     Label("Enter a valid email address.", systemImage: "exclamationmark.circle")
                         .font(.footnote)
                         .foregroundStyle(.red)
+                } else if hasSubmitted && password.count < 8 {
+                    Label("Use at least 8 characters.", systemImage: "exclamationmark.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                } else if hasSubmitted && password != confirmation {
+                    Label("The passwords do not match.", systemImage: "exclamationmark.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.red)
                 }
             }
         } footer: {
-            Text("Firebase will email you a secure, one-time verification link.")
+            Text("Firebase will create the account and email you a verification link.")
                 .foregroundStyle(Color("WelcomeSecondary"))
         }
         .listRowBackground(Color.clear)
 
         Section {
-            Button(action: sendVerificationLink) {
+            Button(action: createAccount) {
                 HStack {
                     if authentication.isSubmitting {
                         ProgressView()
                             .tint(.white)
                     }
-                    Text(authentication.isSubmitting ? "Sending…" : "Send verification link")
+                    Text(authentication.isSubmitting ? "Creating…" : "Create account")
                 }
                 .frame(maxWidth: .infinity, minHeight: 52)
             }
@@ -133,14 +153,17 @@ struct CreateAccountView: View {
             ContentUnavailableView {
                 Label("Check your email", systemImage: "paperplane.circle.fill")
             } description: {
-                Text("We sent a verification link to \(normalizedEmail). Open it on this device to finish registration.")
+                Text("We sent a verification link to \(normalizedEmail). Verify the address, then return to sign in with the password you created.")
             } actions: {
-                Button("Send again", action: sendVerificationLink)
-                    .disabled(authentication.isSubmitting)
                 Button("Use a different email") {
                     linkSent = false
                     hasSubmitted = false
+                    password = ""
+                    confirmation = ""
                     emailIsFocused = true
+                }
+                Button("Continue to sign in") {
+                    dismiss()
                 }
             }
         }
@@ -157,17 +180,19 @@ struct CreateAccountView: View {
         return !parts[0].isEmpty && parts[1].contains(".") && !parts[1].hasSuffix(".")
     }
 
-    private func sendVerificationLink() {
+    private func createAccount() {
         hasSubmitted = true
-        guard isValidEmail else {
+        guard isValidEmail, password.count >= 8, password == confirmation else {
             emailIsFocused = true
             return
         }
 
         emailIsFocused = false
         Task {
-            if await authentication.sendRegistrationLink(email: normalizedEmail) {
+            if await authentication.registerCustomer(email: normalizedEmail, password: password) {
                 linkSent = true
+                password = ""
+                confirmation = ""
             } else {
                 showsAuthenticationIssue = true
             }

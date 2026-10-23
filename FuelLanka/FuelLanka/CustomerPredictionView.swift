@@ -52,6 +52,7 @@ struct FuelPrediction: Identifiable, Equatable {
     let confidence: PredictionConfidence
     let dailyUsage: [DailyFuelUsage]
     let saleCount: Int
+    let engine: FuelPredictionEngine
     let explanation: LocalizedStringResource
 
     var id: String { "\(stationID)-\(fuel.rawValue)" }
@@ -69,6 +70,7 @@ enum FuelPredictionCalculator {
         station: StationDetails,
         fuel: FuelGrade,
         sales: [StationTransaction],
+        demandPredictor: OnDeviceFuelDemandPredictor? = nil,
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> FuelPrediction {
@@ -105,9 +107,16 @@ enum FuelPredictionCalculator {
             max(1, calendar.dateComponents([.day], from: calendar.startOfDay(for: $0), to: now).day ?? 1)
         } ?? 0
         let totalLitres = validSales.compactMap(\.litres).reduce(0, +)
-        let averageDailyUsage = coveredDays >= 2 && validSales.count >= 2
+        let baselineDailyUsage = coveredDays >= 2 && validSales.count >= 2
             ? totalLitres / Double(coveredDays)
             : nil
+        let coreMLDailyUsage = demandPredictor?.predict(
+            dailyUsage: dailyUsage,
+            now: now,
+            calendar: calendar
+        )
+        let averageDailyUsage = coreMLDailyUsage ?? baselineDailyUsage
+        let engine: FuelPredictionEngine = coreMLDailyUsage == nil ? .baseline : .coreML
 
         let reportAgeHours = latestReport?.reportedAt.map {
             max(0, now.timeIntervalSince($0) / 3_600)
@@ -146,6 +155,7 @@ enum FuelPredictionCalculator {
             confidence: confidence,
             dailyUsage: dailyUsage,
             saleCount: validSales.count,
+            engine: engine,
             explanation: explanation(
                 hasReport: latestReport != nil,
                 saleCount: validSales.count,
@@ -203,6 +213,7 @@ enum FuelPredictionCalculator {
 final class FuelPredictionStore {
     private(set) var predictions: [FuelPrediction] = []
     private(set) var state: StationLoadingState = .idle
+    private let demandPredictor = OnDeviceFuelDemandPredictor()
 
     func load(stations: [StationDetails]) async {
         guard state != .loading else { return }
@@ -223,7 +234,8 @@ final class FuelPredictionStore {
                         FuelPredictionCalculator.calculate(
                             station: station,
                             fuel: $0,
-                            sales: transactions
+                            sales: transactions,
+                            demandPredictor: demandPredictor
                         )
                     }
             }
@@ -319,15 +331,27 @@ struct CustomerPredictionView: View {
             await reload()
         }
         .task(id: stationStore.stations.map(\.id)) {
-            if selectedStationID.isEmpty {
-                selectedStationID = stationStore.stations.first?.id ?? ""
-            }
-            await reload()
+            await reload(selectForecastReadyStation: selectedStationID.isEmpty)
         }
     }
 
-    private func reload() async {
+    private func reload(selectForecastReadyStation: Bool = false) async {
         await predictionStore.load(stations: stationStore.stations)
+
+        guard selectForecastReadyStation else { return }
+
+        let preferredPrediction = predictionStore.predictions.first {
+            $0.fuel == .petrol92 && $0.estimatedDaysRemaining != nil
+        } ?? predictionStore.predictions.first {
+            $0.estimatedDaysRemaining != nil
+        }
+
+        if let preferredPrediction {
+            selectedStationID = preferredPrediction.stationID
+            selectedFuel = preferredPrediction.fuel
+        } else {
+            selectedStationID = stationStore.stations.first?.id ?? ""
+        }
     }
 }
 
@@ -471,6 +495,9 @@ private struct PredictionMethodSection: View {
             Label("How this estimate works", systemImage: "info.circle")
                 .font(.headline)
             Text(prediction.explanation)
+                .foregroundStyle(.secondary)
+            Label(prediction.engine.title, systemImage: prediction.engine == .coreML ? "cpu" : "function")
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text("\(prediction.saleCount) confirmed sale records were found in the 14-day window.")
                 .font(.subheadline)

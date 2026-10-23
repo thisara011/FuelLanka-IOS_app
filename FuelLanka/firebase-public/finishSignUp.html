@@ -9,10 +9,10 @@
     <main>
       <h1>Continue in FuelSmart LK</h1>
       <p id="status">Opening the FuelSmart LK app…</p>
-      <p><a id="open-app" href="fuellanka://finishSignUp">Open FuelSmart LK</a></p>
+      <p><a id="open-app" href="fuelsmart://finishSignUp">Open FuelSmart LK</a></p>
     </main>
     <script>
-      const callback = `fuellanka://finishSignUp${window.location.search}${window.location.hash}`;
+      const callback = `fuelsmart://finishSignUp${window.location.search}${window.location.hash}`;
       document.getElementById("open-app").href = callback;
       window.location.replace(callback);
       window.setTimeout(() => {
