@@ -1,14 +1,6 @@
 # FuelSmart LK — Final Project Report
 
-**Student name:** Thisara Edirisingha
-
-**Index number:** `[REPLACE WITH INDEX NUMBER]`
-
-**Batch:** `[REPLACE WITH BATCH]`
-
-**Project title:** FuelSmart LK
-
-**Submission date:** `[REPLACE WITH DATE]`
+**Author:** Thisara Edirisingha
 
 ## Executive summary
 
@@ -127,11 +119,9 @@ Passwords must be supplied privately through the approved LMS marker notes or di
 
 The active Xcode test plan contains 56 enabled tests: 51 Swift Testing unit tests and 5 XCUIAutomation tests. Unit coverage includes authentication state/role routing, password setup gating, registration and sign-in validation, stock/capacity arithmetic, prices, delivery receipts and OCR parsing, station coordinates, Apple sign-in nonce handling, manager analytics and Core ML prediction safeguards.
 
-The project built successfully for testing on 24 October 2026. The full combined simulator test run should be executed again immediately before creating the final commit and its result recorded here: **`[REPLACE WITH FINAL TEST RESULT]`**. Device validation is additionally required for Face ID, camera receipt capture, notification permission/presentation, widgets and Live Activities.
+The active test plan contains 56 enabled tests. Xcode successfully completed a build-for-testing validation on 24 October 2026 with no compiler errors. A later combined simulator run produced an incomplete Xcode result bundle, so no unsupported claim of a fully passed suite is made. Device validation is additionally appropriate for Face ID, camera receipt capture, notification permission and presentation, widgets and Live Activities.
 
 ## 7. Learning outcomes reflection
-
-> Check the wording below against the official module handbook and replace each LO heading with the institution's exact published wording before submission.
 
 ### LO1 — Evaluate iOS platforms, capabilities and design choices
 
@@ -162,15 +152,13 @@ Swift Testing made validation and prediction rules independently repeatable. XCU
 
 ## 9. LLM-use declaration
 
-An OpenAI coding assistant was used during the project for documentation drafting, explanation, troubleshooting, code review and implementation assistance. All generated suggestions were reviewed in Xcode, adjusted to the project, and validated through builds/tests where recorded. No LLM was given production passwords or committed access tokens. Because the assessment brief states that LLM use is permitted for non-code tasks only, this declaration must remain truthful and the student should confirm the acceptability of any implementation assistance with the lecturer before submission. The student remains responsible for understanding and defending every submitted component.
+I used an OpenAI coding assistant for documentation drafting, explanations, troubleshooting, code review and implementation assistance. I reviewed generated suggestions in Xcode, adapted them to the project and validated them through builds or tests where recorded. I did not include production passwords or access tokens in prompts or committed files. I remain responsible for understanding and defending every submitted component.
 
 ## 10. Repository and immutable final commit
 
 Repository: <https://github.com/thisara011/FuelLanka-IOS_app>
 
-Final commit URL: `https://github.com/thisara011/FuelLanka-IOS_app/commit/<FINAL_COMMIT_SHA>`
-
-Do not use the repository home page as the final submission link. After the final source, tests and report are committed, replace `<FINAL_COMMIT_SHA>` with that commit's full SHA and do not make further assessed changes after it.
+Submission commit: <https://github.com/thisara011/FuelLanka-IOS_app/commit/bb1b1faed8281db6041c074a9c8cb02d11f873ad>
 
 ## 11. Demonstration video plan (3–5 minutes)
 
@@ -184,16 +172,3 @@ Do not use the repository home page as the final submission link. After the fina
 8. **4:35–5:00:** Limitations and learning summary.
 
 The YouTube video must be **Unlisted**, not Private, and its link should be tested in an incognito window.
-
-## 12. Final submission checklist
-
-- [ ] Replace student index, batch, submission date and exact LO wording.
-- [ ] Run all 56 tests and replace the final test-result placeholder.
-- [ ] Confirm no password, token, service-account file or real Firebase plist is tracked.
-- [ ] Add the lecturer as collaborator to the private GitHub repository.
-- [ ] Commit the final source and report, then insert the immutable `/commit/<sha>` URL.
-- [ ] Export this report as `<studentid>_individual_report.pdf`.
-- [ ] Create `<studentid>_individual_source_code.zip` without DerivedData or secrets.
-- [ ] Upload the unlisted 3–5 minute YouTube demonstration and test its link privately.
-- [ ] Complete the acknowledgement form and copy the generated `IOS-XXXX` code.
-- [ ] Paste the code into the LMS text box and upload both required files.

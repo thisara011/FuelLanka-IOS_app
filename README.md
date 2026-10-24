@@ -125,11 +125,7 @@ Run tests in Xcode with **Product → Test** (`⌘U`). A build-for-testing valid
 
 Repository: <https://github.com/thisara011/FuelLanka-IOS_app>
 
-The assessment report must link to the immutable final commit:
-
-`https://github.com/thisara011/FuelLanka-IOS_app/commit/<FINAL_COMMIT_SHA>`
-
-Replace `<FINAL_COMMIT_SHA>` only after all source, tests, documentation and configuration examples have been committed. Commits made later may not be graded.
+Submission source commit: <https://github.com/thisara011/FuelLanka-IOS_app/commit/bb1b1faed8281db6041c074a9c8cb02d11f873ad>
 
 ## Security
 
