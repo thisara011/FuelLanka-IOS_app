@@ -101,7 +101,8 @@ struct StationMapView: View {
                             StationDetailsView(
                                 station: station,
                                 favourites: favourites,
-                                userID: userID
+                                userID: userID,
+                                comparisonStations: stations ?? []
                             )
                         } label: {
                             VStack(alignment: .leading, spacing: 10) {

@@ -44,7 +44,7 @@ struct FavouritesView: View {
                 .buttonStyle(.bordered)
                 .disabled(savedStations.isEmpty)
 
-                Text("Favourite widgets will be available in a later update.")
+                Text("Your first saved station with a fuel report is synchronized to the FuelSmart widget.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -90,6 +90,7 @@ private struct FavouriteStationContent: View {
             ForEach(stations) { station in
                 FavouriteStationRow(
                     station: station,
+                    comparisonStations: stations,
                     store: store,
                     userID: userID,
                     isUpdating: store.updatingStationIDs.contains(station.id),
@@ -106,6 +107,7 @@ private struct FavouriteStationContent: View {
 
 private struct FavouriteStationRow: View {
     let station: StationDetails
+    let comparisonStations: [StationDetails]
     let store: FavouriteStationStore
     let userID: String
     let isUpdating: Bool
@@ -117,7 +119,8 @@ private struct FavouriteStationRow: View {
                 StationDetailsView(
                     station: station,
                     favourites: store,
-                    userID: userID
+                    userID: userID,
+                    comparisonStations: comparisonStations
                 )
             } label: {
                 VStack(alignment: .leading, spacing: 8) {

@@ -4,10 +4,20 @@ struct StationDetailsView: View {
     let station: StationDetails?
     var favourites: FavouriteStationStore?
     var userID: String?
+    var comparisonStations: [StationDetails] = []
     @Environment(\.openURL) private var openURL
     @State private var showsDirectionsError = false
     @State private var showsCommunityReport = false
     @State private var journeyController = FuelJourneyController()
+    @State private var predictionStore = FuelPredictionStore()
+    @State private var forecastFuel: FuelGrade = .petrol92
+
+    private var prediction: FuelPrediction? {
+        guard let station else { return nil }
+        return predictionStore.predictions.first {
+            $0.stationID == station.id && $0.fuel == forecastFuel
+        }
+    }
 
     var body: some View {
         List {
@@ -82,6 +92,13 @@ struct StationDetailsView: View {
                     }
                     .accessibilityIdentifier("station.reportFuelStatus")
                 }
+                if !comparisonStations.isEmpty {
+                    NavigationLink {
+                        FuelComparisonView(stations: comparisonStations)
+                    } label: {
+                        Label("Compare fuel prices", systemImage: "arrow.left.arrow.right")
+                    }
+                }
             }
 
             Section {
@@ -108,7 +125,11 @@ struct StationDetailsView: View {
             }
 
             Section {
-                StationForecastUnavailable()
+                StationForecastSection(
+                    prediction: prediction,
+                    fuel: $forecastFuel,
+                    isLoading: predictionStore.state == .loading
+                )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -136,7 +157,18 @@ struct StationDetailsView: View {
             }
         }
         .task(id: station?.id) {
-            if let station { journeyController.refresh(stationID: station.id) }
+            if let station {
+                journeyController.refresh(stationID: station.id)
+                await predictionStore.load(stations: [station])
+                if predictionStore.predictions.first(where: {
+                    $0.fuel == .petrol92 && $0.estimatedDaysRemaining != nil
+                }) == nil,
+                   let available = predictionStore.predictions.first(where: {
+                       $0.estimatedDaysRemaining != nil
+                   }) {
+                    forecastFuel = available.fuel
+                }
+            }
         }
         .alert("Live Activity unavailable", isPresented: Binding(
             get: { journeyController.errorMessage != nil },
@@ -218,13 +250,45 @@ private struct StationFuelReportRow: View {
     }
 }
 
-private struct StationForecastUnavailable: View {
+private struct StationForecastSection: View {
+    let prediction: FuelPrediction?
+    @Binding var fuel: FuelGrade
+    let isLoading: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Fuel outlook").font(.headline)
-            Text("Forecast unavailable").font(.title3.weight(.semibold))
-            Text("A reliable estimate requires recent reports and a validated model. Reported stock is shown separately.")
-                .font(.footnote)
+            Picker("Forecast fuel", selection: $fuel) {
+                ForEach(FuelGrade.allCases.filter { $0 != .any }) { grade in
+                    Text(grade.title).tag(grade)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.white)
+
+            if isLoading {
+                ProgressView("Calculating forecast…")
+                    .tint(.white)
+            } else if let prediction,
+                      let days = prediction.estimatedDaysRemaining,
+                      let runOutDate = prediction.estimatedRunOutDate {
+                Text(days < 1
+                     ? "Less than one day remaining"
+                     : "\(days.formatted(.number.precision(.fractionLength(1)))) days remaining")
+                    .font(.title3.weight(.semibold))
+                Text("Estimated until \(runOutDate.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.footnote)
+                Text(prediction.engine.title)
+                    .font(.caption.weight(.semibold))
+            } else if let prediction {
+                Text("Forecast unavailable").font(.title3.weight(.semibold))
+                Text(prediction.explanation)
+                    .font(.footnote)
+            } else {
+                Text("Forecast unavailable").font(.title3.weight(.semibold))
+                Text("Recent stock reports and confirmed station sales are required.")
+                    .font(.footnote)
+            }
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, alignment: .leading)

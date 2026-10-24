@@ -6,6 +6,15 @@ struct CustomerHomeView: View {
     let userID: String
     let onFindStations: () -> Void
     let onViewOutlook: () -> Void
+    @State private var predictionStore = FuelPredictionStore()
+
+    private var featuredPrediction: FuelPrediction? {
+        predictionStore.predictions.first {
+            $0.fuel == .petrol92 && $0.estimatedDaysRemaining != nil
+        } ?? predictionStore.predictions.first {
+            $0.estimatedDaysRemaining != nil
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -40,7 +49,7 @@ struct CustomerHomeView: View {
                 )
 
                 Button(action: onViewOutlook) {
-                    HomeOutlookCard()
+                    HomeOutlookCard(prediction: featuredPrediction)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("home.outlook")
@@ -77,6 +86,11 @@ struct CustomerHomeView: View {
             if stationStore.state == .idle {
                 await stationStore.load()
             }
+        }
+        .task(id: stationStore.stations.map { station in
+            station.id + station.reports.map(\.id).joined()
+        }) {
+            await predictionStore.load(stations: stationStore.stations)
         }
     }
 
@@ -208,7 +222,8 @@ private struct StationAvailabilitySection: View {
                         StationDetailsView(
                             station: station,
                             favourites: favouriteStore,
-                            userID: userID
+                            userID: userID,
+                            comparisonStations: stations
                         )
                     } label: {
                         HomeStationCard(station: station)
@@ -297,16 +312,32 @@ private struct HomeLoadingFailure: View {
 }
 
 private struct HomeOutlookCard: View {
+    let prediction: FuelPrediction?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Tomorrow’s outlook")
                 .font(.subheadline.bold())
                 .foregroundStyle(Color("WelcomeAccent"))
-            Text("Forecast unavailable")
-                .font(.subheadline.weight(.semibold))
-            Text("Estimates will appear only when recent reports and a validated model are available.")
-                .font(.footnote)
-                .foregroundStyle(Color("WelcomeSecondary"))
+            if let prediction,
+               let days = prediction.estimatedDaysRemaining {
+                Text("\(prediction.stationName) · \(prediction.fuel.title)")
+                    .font(.subheadline.weight(.semibold))
+                Text(days < 1
+                     ? "Less than one day remaining"
+                     : "\(days.formatted(.number.precision(.fractionLength(1)))) days remaining")
+                    .font(.footnote)
+                    .foregroundStyle(Color("WelcomeSecondary"))
+                Text(prediction.engine.title)
+                    .font(.caption)
+                    .foregroundStyle(Color("WelcomeSecondary"))
+            } else {
+                Text("Forecast unavailable")
+                    .font(.subheadline.weight(.semibold))
+                Text("Recent stock and confirmed sales are required.")
+                    .font(.footnote)
+                    .foregroundStyle(Color("WelcomeSecondary"))
+            }
         }
         .homeCard()
     }

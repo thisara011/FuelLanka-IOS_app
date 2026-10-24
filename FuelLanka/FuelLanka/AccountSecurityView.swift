@@ -77,7 +77,7 @@ private struct SecurityIntroduction: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Biometric sign-in", systemImage: "faceid")
                 .font(.headline)
-            Text("Create your Firebase password and protect it with Face ID or Touch ID in the iOS Keychain.")
+            Text("Confirm your current Firebase password and protect it with Face ID or Touch ID in the iOS Keychain.")
                 .font(.subheadline)
                 .foregroundStyle(Color("WelcomeSecondary"))
             Text("The credential stays on this device and becomes inaccessible if its enrolled biometrics change.")
@@ -103,14 +103,14 @@ private struct PasswordSetupForm: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
 
-            SecureField("New password", text: $password)
-                .textContentType(.newPassword)
+            SecureField("Current password", text: $password)
+                .textContentType(.password)
                 .padding(12)
                 .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityIdentifier("security.password")
 
-            SecureField("Confirm password", text: $confirmation)
-                .textContentType(.newPassword)
+            SecureField("Confirm current password", text: $confirmation)
+                .textContentType(.password)
                 .padding(12)
                 .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityIdentifier("security.passwordConfirmation")

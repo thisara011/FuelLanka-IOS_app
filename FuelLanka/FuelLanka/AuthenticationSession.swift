@@ -177,6 +177,8 @@ struct FirebaseAuthenticationService: AuthenticationService {
                 for: result.user,
                 mayCreateCustomerRecord: false
             )
+        } catch let issue as AuthenticationIssue {
+            throw issue
         } catch {
             throw map(error)
         }
@@ -728,6 +730,9 @@ final class AuthenticationSession {
     }
 
     private func mapBiometricError(_ error: Error) -> AuthenticationIssue {
+        if let issue = error as? AuthenticationIssue {
+            return issue
+        }
         guard let biometricError = error as? BiometricCredentialError else {
             return .biometricCredentialFailure
         }

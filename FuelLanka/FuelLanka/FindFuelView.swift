@@ -69,7 +69,8 @@ struct FindFuelView: View {
             StationDetailsView(
                 station: station,
                 favourites: favouriteStore,
-                userID: userID
+                userID: userID,
+                comparisonStations: stationStore.stations
             )
         }
         .navigationTitle("Find Fuel")
