@@ -21,7 +21,8 @@ service cloud.firestore {
     function editableCustomerProfileFields() {
       return [
         "fullName", "email", "phone", "district", "preferredFuels",
-        "restockAlerts", "priceAlerts", "favouriteStationIDs", "updatedAt"
+        "restockAlerts", "priceAlerts", "favouriteStationIDs",
+        "passwordConfigured", "updatedAt"
       ];
     }
 

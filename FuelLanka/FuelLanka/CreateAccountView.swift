@@ -4,8 +4,6 @@ struct CreateAccountView: View {
     let authentication: AuthenticationSession
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
-    @State private var password = ""
-    @State private var confirmation = ""
     @State private var hasSubmitted = false
     @State private var linkSent = false
     @State private var showsAuthenticationIssue = false
@@ -19,7 +17,7 @@ struct CreateAccountView: View {
                     .foregroundStyle(Color("WelcomeHeading"))
                     .accessibilityAddTraits(.isHeader)
 
-                Text("Enter your email and create a password. You must verify your email before signing in.")
+                Text("Enter your email. After you verify it, FuelSmart LK will ask you to create a password.")
                     .font(.subheadline)
                     .foregroundStyle(Color("WelcomeSecondary"))
             }
@@ -100,32 +98,14 @@ struct CreateAccountView: View {
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("registration.email")
 
-                SecureField("Create password", text: $password)
-                    .textContentType(.newPassword)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("registration.password")
-
-                SecureField("Confirm password", text: $confirmation)
-                    .textContentType(.newPassword)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("registration.passwordConfirmation")
-
                 if hasSubmitted && !isValidEmail {
                     Label("Enter a valid email address.", systemImage: "exclamationmark.circle")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                } else if hasSubmitted && password.count < 8 {
-                    Label("Use at least 8 characters.", systemImage: "exclamationmark.circle")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                } else if hasSubmitted && password != confirmation {
-                    Label("The passwords do not match.", systemImage: "exclamationmark.circle")
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
             }
         } footer: {
-            Text("Firebase will create the account and email you a verification link.")
+            Text("Firebase will email a secure verification link. Open it on this device to continue account setup.")
                 .foregroundStyle(Color("WelcomeSecondary"))
         }
         .listRowBackground(Color.clear)
@@ -137,7 +117,7 @@ struct CreateAccountView: View {
                         ProgressView()
                             .tint(.white)
                     }
-                    Text(authentication.isSubmitting ? "Creating…" : "Create account")
+                    Text(authentication.isSubmitting ? "Sending…" : "Send verification link")
                 }
                 .frame(maxWidth: .infinity, minHeight: 52)
             }
@@ -153,16 +133,14 @@ struct CreateAccountView: View {
             ContentUnavailableView {
                 Label("Check your email", systemImage: "paperplane.circle.fill")
             } description: {
-                Text("We sent a verification link to \(normalizedEmail). Verify the address, then return to sign in with the password you created.")
+                Text("We sent a secure link to \(normalizedEmail). Open it on this device, return to FuelSmart LK, and create your password.")
             } actions: {
                 Button("Use a different email") {
                     linkSent = false
                     hasSubmitted = false
-                    password = ""
-                    confirmation = ""
                     emailIsFocused = true
                 }
-                Button("Continue to sign in") {
+                Button("Return to welcome") {
                     dismiss()
                 }
             }
@@ -182,17 +160,15 @@ struct CreateAccountView: View {
 
     private func createAccount() {
         hasSubmitted = true
-        guard isValidEmail, password.count >= 8, password == confirmation else {
+        guard isValidEmail else {
             emailIsFocused = true
             return
         }
 
         emailIsFocused = false
         Task {
-            if await authentication.registerCustomer(email: normalizedEmail, password: password) {
+            if await authentication.sendRegistrationLink(email: normalizedEmail) {
                 linkSent = true
-                password = ""
-                confirmation = ""
             } else {
                 showsAuthenticationIssue = true
             }

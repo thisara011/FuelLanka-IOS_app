@@ -507,6 +507,7 @@ struct FirebaseAuthenticationService: AuthenticationService {
             "preferredFuels": [String](),
             "restockAlerts": false,
             "priceAlerts": false,
+            "passwordConfigured": false,
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let email = user.email {

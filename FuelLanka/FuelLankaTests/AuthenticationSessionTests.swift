@@ -121,7 +121,7 @@ struct AuthenticationSessionTests {
             id: "new-user",
             email: "new@example.com",
             role: .customer,
-            hasPassword: true
+            hasPassword: false
         )
         let service = FakeAuthenticationService(account: account)
         let session = AuthenticationSession(service: service)
@@ -132,7 +132,7 @@ struct AuthenticationSessionTests {
 
         #expect(sent)
         #expect(service.registrationLinkRequests == ["new@example.com"])
-        #expect(session.status == .authenticated(account))
+        #expect(session.status == .passwordSetup(account))
         #expect(session.issue == nil)
     }
 
